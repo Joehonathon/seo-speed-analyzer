@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CompTIA Practice Questions</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>CompTIA Practice Question Generator</h1>
+    <label for="topic">Enter a CompTIA topic:</label>
+    <input type="text" id="topic" placeholder="e.g., Network+">
+<label for="countSelect">Number of Questions:</label>
+    <select id="countSelect">
+      <option value="1">1</option>
+      <option value="3">3</option>
+      <option value="5" selected>5</option>
+      <option value="10">10</option>
+    </select>
+    <button id="generateBtn">Generate Questions</button>
+    <div id="questions">
+      <!-- Questions will appear here -->
+    </div>
+    <p id="score"></p>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
