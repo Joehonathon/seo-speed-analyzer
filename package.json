@@ -1,13 +1,20 @@
 {
-  "name": "exam-wizard-proxy",
+  "name": "joeho",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "dependencies": {
-    "express": "^4.18.2",
-    "node-fetch": "^2.6.7",
-    "dotenv": "^16.0.3"
-  }
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Joehonathon/Examwizardgen1.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Joehonathon/Examwizardgen1/issues"
+  },
+  "homepage": "https://github.com/Joehonathon/Examwizardgen1#readme",
+  "description": ""
 }
