@@ -1,6 +1,6 @@
-import axios from 'axios';
+const axios = require('axios');
 
-export async function runPageSpeed(targetUrl, strategy = 'mobile') {
+async function runPageSpeed(targetUrl, strategy = 'mobile') {
   const apiKey = process.env.PAGESPEED_API_KEY || '';
   const url = new URL(targetUrl, 'https://dummy-base.invalid').href.replace('https://dummy-base.invalid', '');
 
@@ -63,3 +63,5 @@ export async function runPageSpeed(targetUrl, strategy = 'mobile') {
     }
   };
 }
+
+module.exports = { runPageSpeed };

@@ -12,7 +12,15 @@
       "Bash(wmic process where:*)",
       "Bash(del debug-robots-sitemap.js)",
       "WebFetch(domain:www.seobility.net)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(git remote set-url:*)",
+      "Bash(npm install:*)",
+      "Bash(powershell:*)",
+      "Bash(npm start)",
+      "Bash(del database.sqlite)",
+      "Bash(if exist database.sqlite del database.sqlite)",
+      "Bash(gh:*)",
+      "Bash(git --version)"
     ],
     "deny": [],
     "ask": []

@@ -63,3 +63,17 @@ debug-*.js
 *.njsproj
 *.sln
 *.sw?
+
+# Database files
+*.sqlite
+*.db
+
+# Claude Code settings
+.claude/
+
+# OS specific
+desktop.ini
+
+# Build and deploy
+*.zip
+*.tar.gz

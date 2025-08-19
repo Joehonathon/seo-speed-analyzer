@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import SeoForm from './components/SeoForm.jsx'
 import SpeedForm from './components/SpeedForm.jsx'
 import About from './components/About.jsx'
@@ -6,9 +6,25 @@ import Docs from './components/Docs.jsx'
 import Contact from './components/Contact.jsx'
 import SeoBestPractices from './components/SeoBestPractices.jsx'
 import SpeedOptimization from './components/SpeedOptimization.jsx'
+import Auth from './components/Auth.jsx'
+import UserDashboard from './components/UserDashboard.jsx'
 
 export default function App() {
   const [tab, setTab] = useState('seo')
+  const [user, setUser] = useState(null)
+  const [token, setToken] = useState(null)
+  const [showAuth, setShowAuth] = useState(false)
+
+  useEffect(() => {
+    // Check for existing auth on app load
+    const savedToken = localStorage.getItem('auth_token')
+    const savedUser = localStorage.getItem('user')
+    
+    if (savedToken && savedUser) {
+      setToken(savedToken)
+      setUser(JSON.parse(savedUser))
+    }
+  }, [])
   
   const handleNavigateToSEO = () => {
     setTab('seo')
@@ -18,6 +34,25 @@ export default function App() {
   const handleNavigateToSpeed = () => {
     setTab('speed')
     window.scrollTo(0, 0)
+  }
+
+  const handleAuth = ({ token, user }) => {
+    setToken(token)
+    setUser(user)
+    setShowAuth(false)
+  }
+
+  const handleLogout = () => {
+    setToken(null)
+    setUser(null)
+  }
+
+  const requireAuth = () => {
+    if (!user) {
+      setShowAuth(true)
+      return false
+    }
+    return true
   }
 
   return (
@@ -35,12 +70,25 @@ export default function App() {
               </div>
             </div>
             <nav className="nav">
-              <button className={tab==='seo'?'active':''} onClick={() => setTab('seo')}>SEO Analyzer</button>
-              <button className={tab==='speed'?'active':''} onClick={() => setTab('speed')}>Site Speed</button>
+              <button className={`nav-btn ${tab==='seo'?'active':''}`} onClick={() => setTab('seo')}>SEO Analyzer</button>
+              <button className={`nav-btn ${tab==='speed'?'active':''}`} onClick={() => setTab('speed')}>Site Speed</button>
               <div className="nav-divider"></div>
+              {user && (
+                <button className={`nav-link ${tab==='dashboard'?'active':''}`} onClick={() => setTab('dashboard')}>
+                  Dashboard
+                </button>
+              )}
               <button className={`nav-link ${tab==='about'?'active':''}`} onClick={() => setTab('about')}>About</button>
               <button className={`nav-link ${tab==='docs'?'active':''}`} onClick={() => setTab('docs')}>Docs</button>
               <button className={`nav-link ${tab==='contact'?'active':''}`} onClick={() => setTab('contact')}>Contact</button>
+              {user ? (
+                <>
+                  <span className="user-email">@{user.username}</span>
+                  <button className="nav-link logout-btn" onClick={handleLogout}>Logout</button>
+                </>
+              ) : (
+                <button className="login-btn" onClick={() => setShowAuth(true)}>Login</button>
+              )}
             </nav>
           </div>
         </div>
@@ -48,8 +96,9 @@ export default function App() {
 
       <main className="main-content">
         <div className="container">
-          {tab === 'seo' && <SeoForm />}
-          {tab === 'speed' && <SpeedForm />}
+          {tab === 'seo' && <SeoForm user={user} token={token} requireAuth={requireAuth} />}
+          {tab === 'speed' && <SpeedForm user={user} token={token} requireAuth={requireAuth} />}
+          {tab === 'dashboard' && user && <UserDashboard user={user} token={token} onLogout={handleLogout} />}
           {tab === 'about' && <About onNavigateToSEO={handleNavigateToSEO} />}
           {tab === 'docs' && <Docs onNavigateToSEO={handleNavigateToSEO} />}
           {tab === 'contact' && <Contact />}
@@ -57,6 +106,8 @@ export default function App() {
           {tab === 'speed-optimization' && <SpeedOptimization onNavigateToSpeed={handleNavigateToSpeed} />}
         </div>
       </main>
+
+      {showAuth && <Auth onAuth={handleAuth} />}
 
       <footer className="footer">
         <div className="container">

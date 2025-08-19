@@ -5,7 +5,7 @@ import ResultCard from './ResultCard.jsx'
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5050';
 
-export default function SeoForm() {
+export default function SeoForm({ user, token, requireAuth }) {
   const [url, setUrl] = useState('https://example.com')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)
@@ -17,11 +17,29 @@ export default function SeoForm() {
 
   const onSubmit = async (e) => {
     e.preventDefault()
+    
+    if (!requireAuth()) {
+      return
+    }
+    
     setLoading(true); setError(''); setData(null)
     try {
-      const res = await fetch(`${API_BASE}/api/analyze?url=` + encodeURIComponent(url))
+      const headers = {
+        'Authorization': `Bearer ${token}`
+      }
+      const res = await fetch(`${API_BASE}/api/analyze?url=` + encodeURIComponent(url), { headers })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed')
+      if (!res.ok) {
+        if (res.status === 401) {
+          setError('Please login to analyze websites')
+          return
+        }
+        if (res.status === 429) {
+          setError(json.message || 'Daily limit reached. Upgrade to Pro for unlimited access.')
+          return
+        }
+        throw new Error(json.error || 'Failed')
+      }
       setData(json)
     } catch (err) {
       setError(err.message || 'Request failed')

@@ -1,5 +1,5 @@
-import axios from 'axios';
-import { load } from 'cheerio';
+const axios = require('axios');
+const { load } = require('cheerio');
 
 function normalizeUrl(u) {
   try {
@@ -15,7 +15,7 @@ function scoreItem(ok, weight) {
   return ok ? weight : 0;
 }
 
-export async function analyzeUrl(targetUrl) {
+async function analyzeUrl(targetUrl) {
   const url = normalizeUrl(targetUrl);
   const urlObj = new URL(url);
   const started = Date.now();
@@ -1153,3 +1153,5 @@ function analyzeThirdPartyScripts($) {
     suspicious: suspicious
   };
 }
+
+module.exports = { analyzeUrl };
