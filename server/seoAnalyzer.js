@@ -15,7 +15,7 @@ function scoreItem(ok, weight) {
   return ok ? weight : 0;
 }
 
-async function analyzeUrl(targetUrl) {
+async function analyzeUrl(targetUrl, userTier = 'free') {
   const url = normalizeUrl(targetUrl);
   const urlObj = new URL(url);
   const started = Date.now();
@@ -96,19 +96,37 @@ async function analyzeUrl(targetUrl) {
   // Structured data: presence of JSON-LD
   const jsonLd = $('script[type="application/ld+json"]').length;
 
-  // Enhanced meta information analysis
-  const metaAnalysis = analyzeMetaInformation($);
-  const schemaAnalysis = analyzeSchemaMarkup($);
-  const serverConfigAnalysis = analyzeServerConfiguration(response);
-  const accessibilityAnalysis = analyzeAccessibility($);
-  const contentQualityAnalysis = analyzeContentQuality($, text);
-  const linkAnalysis = analyzeLinkStructure($, url);
-  const imageAnalysisAdvanced = analyzeImagesAdvanced($);
-  const mobileFriendlyAnalysis = analyzeMobileFriendly($, viewport);
-  const securityAnalysis = analyzeSecurityFeatures($, response, url);
+  // Enhanced meta information analysis (always run for pro issue detection)
+  const isPro = userTier === 'pro';
+  let metaAnalysis, schemaAnalysis, serverConfigAnalysis, accessibilityAnalysis, contentQualityAnalysis, linkAnalysis, imageAnalysisAdvanced, mobileFriendlyAnalysis, securityAnalysis;
+  
+  try {
+    metaAnalysis = analyzeMetaInformation($);
+    schemaAnalysis = analyzeSchemaMarkup($);
+    serverConfigAnalysis = analyzeServerConfiguration(response);
+    accessibilityAnalysis = analyzeAccessibility($);
+    contentQualityAnalysis = analyzeContentQuality($, text);
+    linkAnalysis = analyzeLinkStructure($, url);
+    imageAnalysisAdvanced = analyzeImagesAdvanced($);
+    mobileFriendlyAnalysis = analyzeMobileFriendly($, viewport);
+    securityAnalysis = analyzeSecurityFeatures($, response, url);
+  } catch (error) {
+    console.error('Error in advanced analysis functions:', error);
+    // Provide default values if analysis functions fail
+    metaAnalysis = { score: 0 };
+    schemaAnalysis = { score: 0, count: 0 };
+    serverConfigAnalysis = { score: 0 };
+    accessibilityAnalysis = { score: 0 };
+    contentQualityAnalysis = { score: 0, hasGoodLength: false, hasGoodStructure: false };
+    linkAnalysis = { score: 0 };
+    imageAnalysisAdvanced = { score: 0 };
+    mobileFriendlyAnalysis = { score: 0 };
+    securityAnalysis = { score: 0 };
+  }
 
-  // Comprehensive scoring (weights total 100)
-  const weights = {
+  // Tiered scoring system - different weights for free vs pro
+  const weights = isPro ? {
+    // Pro tier: Comprehensive analysis (weights total 100)
     statusOk: 4,
     https: 4,
     title: 5,
@@ -133,7 +151,7 @@ async function analyzeUrl(targetUrl) {
     keywordPlacement: 4,
     robotsMeta: 2,
     brokenLinks: 2,
-    // New comprehensive metrics
+    // Advanced Pro metrics
     metaInformation: 5,
     schemaMarkup: 4,
     serverConfig: 4,
@@ -143,6 +161,33 @@ async function analyzeUrl(targetUrl) {
     advancedImages: 4,
     mobileFriendly: 5,
     security: 6
+  } : {
+    // Free tier: Basic analysis only (weights total 100)
+    statusOk: 8,
+    https: 8,
+    title: 12,
+    titleLength: 4,
+    metaDescription: 12,
+    metaDescriptionLength: 4,
+    h1Single: 8,
+    headerHierarchy: 6,
+    viewport: 8,
+    lang: 4,
+    canonicalTag: 6,
+    ogTags: 6,
+    twitterCard: 4,
+    imgAlt: 8,
+    imageOptimization: 6,
+    // No advanced metrics for free users
+    metaInformation: 0,
+    schemaMarkup: 0,
+    serverConfig: 0,
+    accessibility: 0,
+    contentQuality: 0,
+    linkStructure: 0,
+    advancedImages: 0,
+    mobileFriendly: 0,
+    security: 0
   };
 
   let score = 0;
@@ -171,56 +216,64 @@ async function analyzeUrl(targetUrl) {
   score += scoreItem(!!robotsMeta && !robotsMeta.includes('noindex'), weights.robotsMeta);
   score += scoreItem(brokenLinksCheck.status === 'fulfilled' && brokenLinksCheck.value.brokenCount === 0, weights.brokenLinks);
   
-  // New comprehensive metrics scoring
-  score += scoreItem(metaAnalysis.score >= 70, weights.metaInformation);
-  score += scoreItem(schemaAnalysis.score >= 30, weights.schemaMarkup);
-  score += scoreItem(serverConfigAnalysis.score >= 60, weights.serverConfig);
-  score += scoreItem(accessibilityAnalysis.score >= 80, weights.accessibility);
-  score += scoreItem(contentQualityAnalysis.hasGoodLength && contentQualityAnalysis.hasGoodStructure, weights.contentQuality);
-  score += scoreItem(linkAnalysis.score >= 70, weights.linkStructure);
-  score += scoreItem(imageAnalysisAdvanced.score >= 70, weights.advancedImages);
-  score += scoreItem(mobileFriendlyAnalysis.score >= 80, weights.mobileFriendly);
-  score += scoreItem(securityAnalysis.score >= 70, weights.security);
+  // Pro tier: Advanced metrics scoring
+  if (isPro) {
+    score += scoreItem(metaAnalysis.score >= 70, weights.metaInformation);
+    score += scoreItem(schemaAnalysis.score >= 30, weights.schemaMarkup);
+    score += scoreItem(serverConfigAnalysis.score >= 60, weights.serverConfig);
+    score += scoreItem(accessibilityAnalysis.score >= 80, weights.accessibility);
+    score += scoreItem(contentQualityAnalysis.hasGoodLength && contentQualityAnalysis.hasGoodStructure, weights.contentQuality);
+    score += scoreItem(linkAnalysis.score >= 70, weights.linkStructure);
+    score += scoreItem(imageAnalysisAdvanced.score >= 70, weights.advancedImages);
+    score += scoreItem(mobileFriendlyAnalysis.score >= 80, weights.mobileFriendly);
+    score += scoreItem(securityAnalysis.score >= 70, weights.security);
+  }
 
-  const issues = [];
-  if (!(status >= 200 && status < 400)) issues.push(`HTTP status is ${status}`);
-  if (!usesHttps) issues.push('Site should use HTTPS');
-  if (!title) issues.push('Missing <title>');
-  else if (!(title.length >= 10 && title.length <= 60)) issues.push('Title length should be 10–60 chars');
-  if (!metaDescription) issues.push('Missing meta description');
-  else if (!(metaDescription.length >= 50 && metaDescription.length <= 160)) issues.push('Meta description should be 50–160 chars');
-  if (h1Count !== 1) issues.push('Use exactly one <h1>');
-  if (!headerHierarchy.isGood) issues.push(headerHierarchy.issue);
-  if (!hasViewport) issues.push('Missing/weak mobile viewport meta');
-  if (!lang) issues.push('<html lang> attribute missing');
-  if (!canonical) issues.push('Missing canonical link tag');
-  if (!ogTitle || !ogDesc) issues.push('Missing Open Graph title/description');
-  if (!twitterCard) issues.push('Missing Twitter Card meta');
-  if (imgCount > 0 && (imgsMissingAlt / Math.max(1,imgCount)) > 0.1) issues.push('Too many images missing alt text');
-  if (!imageAnalysis.optimized) issues.push(imageAnalysis.issue);
-  if (internalLinks < 5) issues.push('Add more internal links');
-  if (!(externalLinks >= 2 && externalLinks <= 10)) issues.push('Optimize external link count (2-10 recommended)');
-  if (socialLinks.count < 2) issues.push('Add social media links');
-  if (jsonLd === 0) issues.push('Consider adding JSON-LD structured data');
-  if (ttfbMs > 800) issues.push(`High TTFB: ${ttfbMs} ms`);
-  if (!(wordCount >= 300 && wordCount <= 2500)) issues.push(`Word count ${wordCount} should be 300-2500`);
-  if (!keywordAnalysis.titleHasKeywords || !keywordAnalysis.descriptionHasKeywords) issues.push('Improve keyword placement in title/description');
-  if (!robotsMeta || robotsMeta.includes('noindex')) issues.push('Check robots meta tag settings');
-  if (brokenLinksCheck.status === 'fulfilled' && brokenLinksCheck.value.brokenCount > 0) issues.push(`${brokenLinksCheck.value.brokenCount} broken links found`);
+  // Free tier issues - basic SEO problems
+  const freeIssues = [];
+  if (!(status >= 200 && status < 400)) freeIssues.push(`HTTP status is ${status}`);
+  if (!usesHttps) freeIssues.push('Site should use HTTPS');
+  if (!title) freeIssues.push('Missing <title>');
+  else if (!(title.length >= 10 && title.length <= 60)) freeIssues.push('Title length should be 10–60 chars');
+  if (!metaDescription) freeIssues.push('Missing meta description');
+  else if (!(metaDescription.length >= 50 && metaDescription.length <= 160)) freeIssues.push('Meta description should be 50–160 chars');
+  if (h1Count !== 1) freeIssues.push('Use exactly one <h1>');
+  if (!headerHierarchy.isGood) freeIssues.push(headerHierarchy.issue);
+  if (!hasViewport) freeIssues.push('Missing/weak mobile viewport meta');
+  if (!lang) freeIssues.push('<html lang> attribute missing');
+  if (!canonical) freeIssues.push('Missing canonical link tag');
+  if (!ogTitle || !ogDesc) freeIssues.push('Missing Open Graph title/description');
+  if (!twitterCard) freeIssues.push('Missing Twitter Card meta');
+  if (imgCount > 0 && (imgsMissingAlt / Math.max(1,imgCount)) > 0.1) freeIssues.push('Too many images missing alt text');
+  if (!imageAnalysis.optimized) freeIssues.push(imageAnalysis.issue);
+  if (internalLinks < 5) freeIssues.push('Add more internal links');
+  if (!(externalLinks >= 2 && externalLinks <= 10)) freeIssues.push('Optimize external link count (2-10 recommended)');
+  if (socialLinks.count < 2) freeIssues.push('Add social media links');
+  if (jsonLd === 0) freeIssues.push('Consider adding JSON-LD structured data');
+  if (ttfbMs > 800) freeIssues.push(`High TTFB: ${ttfbMs} ms`);
+  if (!(wordCount >= 300 && wordCount <= 2500)) freeIssues.push(`Word count ${wordCount} should be 300-2500`);
+  if (!keywordAnalysis.titleHasKeywords || !keywordAnalysis.descriptionHasKeywords) freeIssues.push('Improve keyword placement in title/description');
+  if (!robotsMeta || robotsMeta.includes('noindex')) freeIssues.push('Check robots meta tag settings');
+  if (brokenLinksCheck.status === 'fulfilled' && brokenLinksCheck.value.brokenCount > 0) freeIssues.push(`${brokenLinksCheck.value.brokenCount} broken links found`);
   
-  // New comprehensive metrics issues
-  if (metaAnalysis.score < 70) issues.push('Improve meta information completeness');
-  if (schemaAnalysis.count === 0) issues.push('Add structured data markup');
-  if (serverConfigAnalysis.score < 60) issues.push('Improve server configuration and security headers');
-  if (accessibilityAnalysis.score < 80) issues.push('Address accessibility issues');
-  if (!contentQualityAnalysis.hasGoodLength) issues.push('Optimize content length (300-2500 words)');
-  if (!contentQualityAnalysis.hasGoodStructure) issues.push('Improve content structure with headings, lists, or images');
-  if (linkAnalysis.score < 70) issues.push('Optimize link structure and anchor text');
-  if (imageAnalysisAdvanced.score < 70) issues.push('Optimize images (alt text, lazy loading, formats)');
-  if (mobileFriendlyAnalysis.score < 80) issues.push('Improve mobile-friendliness');
-  if (securityAnalysis.score < 70) issues.push('Enhance website security features');
+  // Pro tier issues - advanced SEO problems (always generated but only shown to Pro users)
+  const proIssues = [];
+  if (metaAnalysis.score < 70) proIssues.push('Improve meta information completeness');
+  if (schemaAnalysis.count === 0) proIssues.push('Add structured data markup');
+  if (serverConfigAnalysis.score < 60) proIssues.push('Improve server configuration and security headers');
+  if (accessibilityAnalysis.score < 80) proIssues.push('Address accessibility issues');
+  if (!contentQualityAnalysis.hasGoodLength) proIssues.push('Optimize content length (300-2500 words)');
+  if (!contentQualityAnalysis.hasGoodStructure) proIssues.push('Improve content structure with headings, lists, or images');
+  if (linkAnalysis.score < 70) proIssues.push('Optimize link structure and anchor text');
+  if (imageAnalysisAdvanced.score < 70) proIssues.push('Optimize images (alt text, lazy loading, formats)');
+  if (mobileFriendlyAnalysis.score < 80) proIssues.push('Improve mobile-friendliness');
+  if (securityAnalysis.score < 70) proIssues.push('Enhance website security features');
+  
+  // Combine issues based on user tier for backward compatibility
+  const issues = isPro ? [...freeIssues, ...proIssues] : freeIssues;
+  
 
-    return {
+  return {
       url,
       status,
       ttfbMs,
@@ -259,7 +312,9 @@ async function analyzeUrl(targetUrl) {
         security: securityAnalysis
       },
       score: Math.round(score),
-      issues
+      issues,
+      freeIssues,
+      proIssues
     };
   } catch (error) {
     console.error('SEO Analysis Error:', error.message);

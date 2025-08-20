@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import ScoreBadge from './ScoreBadge.jsx'
 import ResultCard from './ResultCard.jsx'
 
@@ -71,18 +71,54 @@ function formatBytes(bytes) {
   return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i]
 }
 
-export default function SpeedForm() {
+export default function SpeedForm({ user, token, requireAuth }) {
   const [url, setUrl] = useState('https://example.com')
   const [strategy, setStrategy] = useState('mobile')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
+  const [userProfile, setUserProfile] = useState(null)
+
+  // Load user profile to check for saved API key
+  useEffect(() => {
+    if (token) {
+      fetchUserProfile();
+    }
+  }, [token])
+
+  const fetchUserProfile = async () => {
+    try {
+      const headers = {
+        'Authorization': `Bearer ${token}`
+      };
+      const response = await fetch(`${API_BASE}/api/auth/profile`, { headers });
+      if (response.ok) {
+        const profileData = await response.json();
+        setUserProfile(profileData);
+      }
+    } catch (err) {
+      console.error('Failed to fetch user profile:', err);
+    }
+  }
 
   const onSubmit = async (e) => {
     e.preventDefault()
+    
+    // Check if user is authenticated
+    if (!requireAuth()) {
+      return; // requireAuth will show the login modal
+    }
+
     setLoading(true); setError(''); setData(null)
     try {
-      const res = await fetch(`${API_BASE}/api/pagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}`)
+      const headers = {
+        'Authorization': `Bearer ${token}`
+      };
+      
+      // The backend will automatically use the user's saved API key from dashboard
+      const apiUrl = `${API_BASE}/api/pagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}`;
+      
+      const res = await fetch(apiUrl, { headers })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed')
       setData(json)
@@ -98,7 +134,7 @@ export default function SpeedForm() {
   return (
     <section className="card">
       <h2>Site Speed</h2>
-      <p>Get a quick speed read. If a PageSpeed API key is configured on the server, you’ll see Lighthouse metrics.</p>
+      <p>Get a quick speed read. {!user && <span className="auth-required">Login required to run speed tests.</span>} {user && 'If a PageSpeed API key is configured on the server, you\'ll see Lighthouse metrics.'}</p>
       <form onSubmit={onSubmit} className="form">
         <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://yoursite.com" />
         <select value={strategy} onChange={e=>setStrategy(e.target.value)}>
@@ -110,7 +146,7 @@ export default function SpeedForm() {
 
       {error && <div className="error">{error}</div>}
       {data && (
-        <div className="results">
+        <div className="results speed-results">
           <div className="results-header">
             {typeof perf === 'number' ? (
               <ScoreBadge score={perf} label="Performance Score" />
@@ -190,27 +226,99 @@ export default function SpeedForm() {
                 ]}
               />
 
-              <div className="enhanced-card">
-                <div className="enhanced-card-header">
-                  <div className="card-icon">🔧</div>
-                  <div className="card-title-content">
-                    <h4>Get Detailed Metrics</h4>
-                    <div className="card-stats">Lighthouse integration</div>
+              <div className="lighthouse-card">
+                <div className="lighthouse-header">
+                  <div className="lighthouse-icon">
+                    <div className="lighthouse-beacon"></div>
+                    🚀
                   </div>
-                </div>
-                <div className="enhanced-card-body">
-                  <div className="upgrade-message">
-                    <p>Add a Google PageSpeed Insights API key to get comprehensive Lighthouse metrics including:</p>
-                    <ul>
-                      <li>Core Web Vitals (FCP, LCP, CLS)</li>
-                      <li>Performance opportunities</li>
-                      <li>Detailed diagnostics</li>
-                      <li>Mobile/Desktop comparisons</li>
-                    </ul>
-                    <div className="api-setup">
-                      <strong>Setup:</strong> Add <code>PAGESPEED_API_KEY</code> to <code>server/.env</code>
+                  <div className="lighthouse-title">
+                    <h4>Unlock Lighthouse Metrics</h4>
+                    <p>Get Google's advanced performance insights</p>
+                  </div>
+                  {userProfile?.pagespeedApi?.hasKey && (
+                    <div className="lighthouse-status">
+                      <div className="status-dot"></div>
+                      <span>Connected</span>
                     </div>
-                  </div>
+                  )}
+                </div>
+
+                <div className="lighthouse-body">
+                  {!userProfile?.pagespeedApi?.hasKey ? (
+                    <div className="lighthouse-setup">
+                      <div className="metrics-preview">
+                        <div className="preview-grid">
+                          <div className="metric-preview">
+                            <div className="metric-icon">⚡</div>
+                            <span>Core Web Vitals</span>
+                          </div>
+                          <div className="metric-preview">
+                            <div className="metric-icon">📊</div>
+                            <span>Performance Score</span>
+                          </div>
+                          <div className="metric-preview">
+                            <div className="metric-icon">🎯</div>
+                            <span>Opportunities</span>
+                          </div>
+                          <div className="metric-preview">
+                            <div className="metric-icon">🔍</div>
+                            <span>Diagnostics</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="setup-actions">
+                        <div className="dashboard-notice">
+                          <div className="notice-icon">ℹ️</div>
+                          <div className="notice-content">
+                            <p><strong>Configure in Dashboard</strong></p>
+                            <p>Set up your PageSpeed API key in your user dashboard for automatic use across all speed tests and project analysis.</p>
+                          </div>
+                        </div>
+                        <button 
+                          type="button"
+                          className="primary-setup-btn"
+                          onClick={() => window.location.hash = 'dashboard'}
+                        >
+                          <span className="btn-icon">⚙️</span>
+                          Go to Dashboard Settings
+                        </button>
+                        <button 
+                          type="button"
+                          className="secondary-setup-btn"
+                          onClick={() => window.open('https://developers.google.com/speed/docs/insights/v5/get-started', '_blank')}
+                        >
+                          <span className="btn-icon">📖</span>
+                          How to Get API Key
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="lighthouse-connected">
+                      <div className="connection-success">
+                        <div className="success-icon">✅</div>
+                        <div className="success-content">
+                          <h5>Lighthouse Metrics Enabled!</h5>
+                          <p>Your PageSpeed API key is configured. You'll get detailed Core Web Vitals, performance opportunities, and diagnostics with every speed test.</p>
+                          {userProfile?.pagespeedApi?.maskedKey && (
+                            <div className="api-key-display">
+                              <span className="key-label">API Key:</span>
+                              <code className="masked-key">{userProfile.pagespeedApi.maskedKey}</code>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="manage-btn"
+                          onClick={() => window.location.hash = 'dashboard'}
+                          title="Manage API key in dashboard"
+                        >
+                          Manage in Dashboard
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

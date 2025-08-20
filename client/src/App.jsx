@@ -6,6 +6,7 @@ import Docs from './components/Docs.jsx'
 import Contact from './components/Contact.jsx'
 import SeoBestPractices from './components/SeoBestPractices.jsx'
 import SpeedOptimization from './components/SpeedOptimization.jsx'
+import PageSpeedApiDocs from './components/PageSpeedApiDocs.jsx'
 import Auth from './components/Auth.jsx'
 import UserDashboard from './components/UserDashboard.jsx'
 
@@ -98,12 +99,13 @@ export default function App() {
         <div className="container">
           {tab === 'seo' && <SeoForm user={user} token={token} requireAuth={requireAuth} />}
           {tab === 'speed' && <SpeedForm user={user} token={token} requireAuth={requireAuth} />}
-          {tab === 'dashboard' && user && <UserDashboard user={user} token={token} onLogout={handleLogout} />}
+          {tab === 'dashboard' && user && <UserDashboard user={user} token={token} onLogout={handleLogout} onNavigate={setTab} />}
           {tab === 'about' && <About onNavigateToSEO={handleNavigateToSEO} />}
           {tab === 'docs' && <Docs onNavigateToSEO={handleNavigateToSEO} />}
           {tab === 'contact' && <Contact />}
           {tab === 'seo-best-practices' && <SeoBestPractices onNavigateToSEO={handleNavigateToSEO} />}
           {tab === 'speed-optimization' && <SpeedOptimization onNavigateToSpeed={handleNavigateToSpeed} />}
+          {tab === 'pagespeed-api-docs' && <PageSpeedApiDocs />}
         </div>
       </main>
 
@@ -139,6 +141,7 @@ export default function App() {
               <ul>
                 <li><button className="footer-link" onClick={() => setTab('seo-best-practices')}>SEO Best Practices</button></li>
                 <li><button className="footer-link" onClick={() => setTab('speed-optimization')}>Speed Optimization</button></li>
+                <li><button className="footer-link" onClick={() => setTab('pagespeed-api-docs')}>PageSpeed API Guide</button></li>
               </ul>
             </div>
             

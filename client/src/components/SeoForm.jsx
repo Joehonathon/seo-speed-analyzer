@@ -520,7 +520,108 @@ For more detailed analysis, visit: ${window.location.origin}
             ]} />
           </div>
 
-          {data.issues?.length > 0 && (
+          {/* Pro-tier Advanced Metrics */}
+          {user?.tier === 'pro' && (
+            <>
+              <div className="pro-metrics-header">
+                <h4>⭐ Advanced Pro Metrics</h4>
+                <span className="pro-badge">Pro Only</span>
+              </div>
+              
+              <div className="grid pro-metrics">
+                <ResultCard
+                  title="Meta Information"
+                  items={[
+                    ['Completeness Score', `${data.metrics?.metaInformation?.score || 0}/100`],
+                    ['Meta Robots', data.metrics?.metaInformation?.robotsMeta || '—'],
+                    ['Meta Keywords', data.metrics?.metaInformation?.keywords || '—'],
+                    ['Meta Author', data.metrics?.metaInformation?.author || '—'],
+                    ['Dublin Core', data.metrics?.metaInformation?.dublinCore ? 'Present' : 'Missing'],
+                  ]}
+                />
+                
+                <ResultCard
+                  title="Schema Markup"
+                  items={[
+                    ['Schema Score', `${data.metrics?.schemaMarkup?.score || 0}/100`],
+                    ['Structured Data Count', data.metrics?.schemaMarkup?.count || 0],
+                    ['JSON-LD Scripts', data.metrics?.schemaMarkup?.jsonLdCount || 0],
+                    ['Microdata Elements', data.metrics?.schemaMarkup?.microdataCount || 0],
+                    ['Schema Types', (data.metrics?.schemaMarkup?.types || []).join(', ') || '—'],
+                  ]}
+                />
+                
+                <ResultCard
+                  title="Server Configuration"
+                  items={[
+                    ['Config Score', `${data.metrics?.serverConfiguration?.score || 0}/100`],
+                    ['Security Headers', data.metrics?.serverConfiguration?.securityHeaders || 0],
+                    ['Compression', data.metrics?.serverConfiguration?.compression ? 'Enabled' : 'Disabled'],
+                    ['Caching Headers', data.metrics?.serverConfiguration?.caching ? 'Present' : 'Missing'],
+                    ['Server Response', data.metrics?.serverConfiguration?.serverHeader || '—'],
+                  ]}
+                />
+                
+                <ResultCard
+                  title="Accessibility"
+                  items={[
+                    ['Accessibility Score', `${data.metrics?.accessibility?.score || 0}/100`],
+                    ['Alt Text Coverage', `${data.metrics?.accessibility?.altTextCoverage || 0}%`],
+                    ['Heading Structure', data.metrics?.accessibility?.headingStructure ? 'Good' : 'Needs Work'],
+                    ['Color Contrast', data.metrics?.accessibility?.colorContrast ? 'Good' : 'Check Needed'],
+                    ['Focus Management', data.metrics?.accessibility?.focusManagement ? 'Present' : 'Missing'],
+                  ]}
+                />
+                
+                <ResultCard
+                  title="Content Quality"
+                  items={[
+                    ['Content Score', `${data.metrics?.contentQuality?.score || 0}/100`],
+                    ['Word Count', data.metrics?.contentQuality?.wordCount || 0],
+                    ['Reading Level', data.metrics?.contentQuality?.readingLevel || '—'],
+                    ['Paragraph Count', data.metrics?.contentQuality?.paragraphCount || 0],
+                    ['Content Structure', data.metrics?.contentQuality?.hasGoodStructure ? 'Good' : 'Needs Work'],
+                  ]}
+                />
+                
+                <ResultCard
+                  title="Advanced Images"
+                  items={[
+                    ['Image Score', `${data.metrics?.advancedImages?.score || 0}/100`],
+                    ['Lazy Loading', data.metrics?.advancedImages?.lazyLoading ? 'Implemented' : 'Missing'],
+                    ['Modern Formats', `${data.metrics?.advancedImages?.modernFormats || 0}%`],
+                    ['Responsive Images', data.metrics?.advancedImages?.responsiveImages ? 'Present' : 'Missing'],
+                    ['Image Compression', data.metrics?.advancedImages?.compression || '—'],
+                  ]}
+                />
+                
+                <ResultCard
+                  title="Mobile Friendly"
+                  items={[
+                    ['Mobile Score', `${data.metrics?.mobileFriendly?.score || 0}/100`],
+                    ['Responsive Design', data.metrics?.mobileFriendly?.responsive ? 'Yes' : 'No'],
+                    ['Touch Targets', data.metrics?.mobileFriendly?.touchTargets ? 'Adequate' : 'Too Small'],
+                    ['Mobile Speed', data.metrics?.mobileFriendly?.speed || '—'],
+                    ['Viewport Config', data.metrics?.mobileFriendly?.viewportConfig ? 'Correct' : 'Missing'],
+                  ]}
+                />
+                
+                <ResultCard
+                  title="Security Analysis"
+                  items={[
+                    ['Security Score', `${data.metrics?.security?.score || 0}/100`],
+                    ['HTTPS Enforced', data.metrics?.security?.httpsEnforced ? 'Yes' : 'No'],
+                    ['CSP Header', data.metrics?.security?.csp ? 'Present' : 'Missing'],
+                    ['HSTS', data.metrics?.security?.hsts ? 'Enabled' : 'Disabled'],
+                    ['Security Vulnerabilities', data.metrics?.security?.vulnerabilities || 0],
+                  ]}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Tiered Priority Fixes */}
+          {((data.freeIssues?.length > 0) || (data.proIssues?.length > 0)) && (
             <div className="top-fixes-card">
               <div className="top-fixes-header">
                 <div className="fix-icon">⚡</div>
@@ -528,29 +629,80 @@ For more detailed analysis, visit: ${window.location.origin}
                   <h3>Top Priority Fixes</h3>
                   <p>Address these issues to improve your SEO score</p>
                 </div>
-                <div className="fixes-count">{data.issues.length}</div>
+                <div className="fixes-count">
+                  {(data.freeIssues?.length || 0) + (data.proIssues?.length || 0)}
+                </div>
               </div>
+              
               <div className="fixes-list">
-                {data.issues.map((issue, i) => (
-                    <div key={i} className="fix-item">
-                      <div className="fix-priority">
-                        <span className="priority-number">{i + 1}</span>
-                      </div>
-                      <div className="fix-content">
-                        <div className="fix-text">{issue}</div>
-                        <div className="fix-impact">High Impact</div>
-                      </div>
-                      <div className="fix-action">
-                        <button 
-                          className="fix-btn" 
-                          onClick={(e) => handleFixClick(i, e)}
-                          ref={el => buttonRefs.current[i] = el}
-                        >
-                          Fix
-                        </button>
-                      </div>
+                {/* Free tier issues - always visible */}
+                {data.freeIssues?.map((issue, i) => (
+                  <div key={`free-${i}`} className="fix-item">
+                    <div className="fix-priority">
+                      <span className="priority-number">{i + 1}</span>
                     </div>
+                    <div className="fix-content">
+                      <div className="fix-text">{issue}</div>
+                      <div className="fix-impact">High Impact</div>
+                    </div>
+                    <div className="fix-action">
+                      <button 
+                        className="fix-btn" 
+                        onClick={(e) => handleFixClick(i, e)}
+                        ref={el => buttonRefs.current[i] = el}
+                      >
+                        Fix
+                      </button>
+                    </div>
+                  </div>
                 ))}
+                
+                {/* Pro tier issues - blurred for free users */}
+                {data.proIssues?.map((issue, i) => {
+                  const shouldShowUpgradeCard = user?.tier !== 'pro' && i === Math.floor(data.proIssues.length / 2);
+                  return (
+                    <React.Fragment key={`pro-${i}`}>
+                      <div className={`fix-item ${user?.tier !== 'pro' ? 'pro-blurred' : ''}`}>
+                        <div className="fix-priority">
+                          <span className="priority-number">{(data.freeIssues?.length || 0) + i + 1}</span>
+                        </div>
+                        <div className="fix-content">
+                          <div className="fix-text">{issue}</div>
+                          <div className="fix-impact">Advanced</div>
+                        </div>
+                        <div className="fix-action">
+                          {user?.tier === 'pro' ? (
+                            <button 
+                              className="fix-btn" 
+                              onClick={(e) => handleFixClick((data.freeIssues?.length || 0) + i, e)}
+                              ref={el => buttonRefs.current[(data.freeIssues?.length || 0) + i] = el}
+                            >
+                              Fix
+                            </button>
+                          ) : (
+                            <button className="fix-btn pro-locked" disabled>
+                              Pro
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Show upgrade prompt in the middle of pro issues for free users */}
+                      {shouldShowUpgradeCard && (
+                        <div className="upgrade-prompt-card">
+                          <div className="upgrade-icon">🚀</div>
+                          <div className="upgrade-content">
+                            <h4>Unlock {data.proIssues.length} Advanced Fixes</h4>
+                            <p>Get detailed insights on accessibility, security, content quality, and more with Pro.</p>
+                            <button className="upgrade-btn" disabled>
+                              Upgrade to Pro
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </div>
             </div>
           )}

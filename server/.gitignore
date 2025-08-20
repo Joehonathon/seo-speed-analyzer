@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Environment variables - NEVER commit these!
+.env
+.env.local
+.env.production
+
+# Database files
+*.sqlite
+*.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Build output
+dist/
+build/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db

@@ -42,13 +42,22 @@ async function checkRateLimit(req, res, next) {
     const userId = req.user.id;
     const userTier = req.user.tier;
     
-    // Pro users have unlimited access
+    // Get current usage for all users (for tracking purposes)
+    const todayUsage = await db.getTodayUsage(userId);
+    
+    // Pro users have unlimited access but still track usage
     if (userTier === 'pro') {
+      // Increment usage counter for pro users (for statistics)
+      await db.incrementUsage(userId);
+      req.usageInfo = {
+        used: todayUsage + 1,
+        limit: 'unlimited',
+        remaining: 'unlimited'
+      };
       return next();
     }
 
     // Check free tier usage
-    const todayUsage = await db.getTodayUsage(userId);
     const FREE_TIER_LIMIT = 3;
 
     if (todayUsage >= FREE_TIER_LIMIT) {
@@ -65,6 +74,49 @@ async function checkRateLimit(req, res, next) {
       used: todayUsage + 1,
       limit: FREE_TIER_LIMIT,
       remaining: FREE_TIER_LIMIT - (todayUsage + 1)
+    };
+    
+    next();
+  } catch (error) {
+    console.error('Rate limit check error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// Check rate limit without incrementing usage - for internal API calls
+async function checkRateLimitWithoutIncrement(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const userTier = req.user.tier;
+    
+    // Get current usage for all users (for tracking purposes)
+    const todayUsage = await db.getTodayUsage(userId);
+    
+    // Pro users have unlimited access
+    if (userTier === 'pro') {
+      req.usageInfo = {
+        used: todayUsage,
+        limit: 'unlimited',
+        remaining: 'unlimited'
+      };
+      return next();
+    }
+
+    // Check free tier usage
+    const FREE_TIER_LIMIT = 3;
+
+    if (todayUsage >= FREE_TIER_LIMIT) {
+      return res.status(429).json({ 
+        error: 'Daily limit reached', 
+        message: 'You have reached your daily limit of 3 reports. Upgrade to Pro for unlimited access.',
+        upgrade_required: true
+      });
+    }
+
+    req.usageInfo = {
+      used: todayUsage,
+      limit: FREE_TIER_LIMIT,
+      remaining: FREE_TIER_LIMIT - todayUsage
     };
     
     next();
@@ -180,6 +232,11 @@ async function getProfile(req, res) {
     const user = await db.getUserById(req.user.id);
     const todayUsage = await db.getTodayUsage(req.user.id);
     
+    // Check if user has a saved PageSpeed API key
+    const apiKey = await db.getPageSpeedApiKey(req.user.id);
+    const hasPageSpeedKey = !!apiKey;
+    const maskedApiKey = apiKey ? db.getMaskedApiKey(apiKey) : null;
+    
     res.json({
       user: {
         id: user.id,
@@ -191,6 +248,10 @@ async function getProfile(req, res) {
       usage: {
         today: todayUsage,
         limit: user.tier === 'pro' ? 'unlimited' : 3
+      },
+      pagespeedApi: {
+        hasKey: hasPageSpeedKey,
+        maskedKey: maskedApiKey
       }
     });
   } catch (error) {
@@ -199,9 +260,58 @@ async function getProfile(req, res) {
   }
 }
 
+// Project analysis rate limit - increments once for combined SEO+Speed analysis
+async function checkProjectRateLimit(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const userTier = req.user.tier;
+    
+    // Get current usage for all users (for tracking purposes)
+    const todayUsage = await db.getTodayUsage(userId);
+    
+    // Pro users have unlimited access but still track usage
+    if (userTier === 'pro') {
+      // Increment usage counter for pro users (for statistics) - ONLY ONCE for project analysis
+      await db.incrementUsage(userId);
+      req.usageInfo = {
+        used: todayUsage + 1,
+        limit: 'unlimited',
+        remaining: 'unlimited'
+      };
+      return next();
+    }
+
+    // Check free tier usage
+    const FREE_TIER_LIMIT = 3;
+
+    if (todayUsage >= FREE_TIER_LIMIT) {
+      return res.status(429).json({ 
+        error: 'Daily limit reached', 
+        message: 'You have reached your daily limit of 3 reports. Upgrade to Pro for unlimited access.',
+        upgrade_required: true
+      });
+    }
+
+    // Increment usage counter - ONLY ONCE for project analysis
+    await db.incrementUsage(userId);
+    req.usageInfo = {
+      used: todayUsage + 1,
+      limit: FREE_TIER_LIMIT,
+      remaining: FREE_TIER_LIMIT - (todayUsage + 1)
+    };
+    
+    next();
+  } catch (error) {
+    console.error('Project rate limit check error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 module.exports = {
   authenticateToken,
   checkRateLimit,
+  checkRateLimitWithoutIncrement,
+  checkProjectRateLimit,
   register,
   login,
   getProfile,
