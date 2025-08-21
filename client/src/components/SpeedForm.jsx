@@ -25,7 +25,50 @@ function SpeedMetricCard({ title, icon, items }) {
             <div className={`status-indicator ${status}`}>
               {status === 'good' && '✓'}
               {status === 'warning' && '⚠'}
-              {status === 'missing' && '✗'}
+              {status === 'bad' && '✗'}
+              {status === 'missing' && '?'}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Opportunities recommendation card component
+function OpportunitiesCard({ title, icon, items }) {
+  return (
+    <div className="opportunities-card">
+      <div className="opportunities-header">
+        <div className="opportunities-icon-wrapper">
+          <div className="opportunities-icon">{icon}</div>
+          <div className="opportunities-pulse"></div>
+        </div>
+        <div className="opportunities-title-content">
+          <h4>{title}</h4>
+          <div className="opportunities-subtitle">Performance Recommendations</div>
+        </div>
+        <div className="opportunities-badge">
+          <span className="badge-text">Live Analysis</span>
+        </div>
+      </div>
+      <div className="opportunities-body">
+        {items.map(([key, value, status], i) => (
+          <div key={i} className={`opportunity-item ${status}`}>
+            <div className="opportunity-indicator">
+              {status === 'good' && <span className="indicator-icon good">✓</span>}
+              {status === 'warning' && <span className="indicator-icon warning">⚠</span>}
+              {status === 'bad' && <span className="indicator-icon bad">!</span>}
+              {status === 'missing' && <span className="indicator-icon missing">?</span>}
+            </div>
+            <div className="opportunity-content">
+              <div className="opportunity-category">{key}</div>
+              <div className="opportunity-recommendation">{value}</div>
+            </div>
+            <div className="opportunity-action">
+              {status === 'bad' && <span className="action-label">Fix</span>}
+              {status === 'warning' && <span className="action-label">Review</span>}
+              {status === 'good' && <span className="action-label">✓</span>}
             </div>
           </div>
         ))}
@@ -43,17 +86,17 @@ function getMetricStatus(metric, value) {
   
   switch (metric) {
     case 'FCP':
-      return numericValue <= 1.8 ? 'good' : numericValue <= 3.0 ? 'warning' : 'missing'
+      return numericValue <= 1.8 ? 'good' : numericValue <= 3.0 ? 'warning' : 'bad'
     case 'LCP':
-      return numericValue <= 2.5 ? 'good' : numericValue <= 4.0 ? 'warning' : 'missing'
+      return numericValue <= 2.5 ? 'good' : numericValue <= 4.0 ? 'warning' : 'bad'
     case 'CLS':
-      return numericValue <= 0.1 ? 'good' : numericValue <= 0.25 ? 'warning' : 'missing'
+      return numericValue <= 0.1 ? 'good' : numericValue <= 0.25 ? 'warning' : 'bad'
     case 'TBT':
-      return numericValue <= 200 ? 'good' : numericValue <= 600 ? 'warning' : 'missing'
+      return numericValue <= 200 ? 'good' : numericValue <= 600 ? 'warning' : 'bad'
     case 'SI':
-      return numericValue <= 3.4 ? 'good' : numericValue <= 5.8 ? 'warning' : 'missing'
+      return numericValue <= 3.4 ? 'good' : numericValue <= 5.8 ? 'warning' : 'bad'
     case 'TTI':
-      return numericValue <= 3.8 ? 'good' : numericValue <= 7.3 ? 'warning' : 'missing'
+      return numericValue <= 3.8 ? 'good' : numericValue <= 7.3 ? 'warning' : 'bad'
     default:
       return 'good'
   }
@@ -61,7 +104,7 @@ function getMetricStatus(metric, value) {
 
 function getBasicTimeStatus(timeMs) {
   if (!timeMs) return 'missing'
-  return timeMs <= 200 ? 'good' : timeMs <= 1000 ? 'warning' : 'missing'
+  return timeMs <= 200 ? 'good' : timeMs <= 1000 ? 'warning' : 'bad'
 }
 
 function formatBytes(bytes) {
@@ -69,6 +112,31 @@ function formatBytes(bytes) {
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
   return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i]
+}
+
+// Helper function to determine opportunity status
+function getOpportunityStatus(opportunityText) {
+  if (!opportunityText || opportunityText === 'Not analyzed') return 'missing'
+  
+  // Positive indicators (optimized)
+  const optimizedKeywords = [
+    'is optimized', 'are optimized', 'load efficiently', 
+    'compression enabled', 'using modern', 'configured properly',
+    'Optimized'
+  ]
+  
+  if (optimizedKeywords.some(keyword => opportunityText.includes(keyword))) {
+    return 'good'
+  }
+  
+  // If it contains savings or specific recommendations, it's a warning (needs improvement)
+  if (opportunityText.includes('Save ') || opportunityText.includes('Eliminate ') || 
+      opportunityText.includes('Reduce ') || opportunityText.includes('Enable ')) {
+    return 'bad'
+  }
+  
+  // Default to warning for opportunities that need attention
+  return 'warning'
 }
 
 export default function SpeedForm({ user, token, requireAuth }) {
@@ -111,12 +179,18 @@ export default function SpeedForm({ user, token, requireAuth }) {
 
     setLoading(true); setError(''); setData(null)
     try {
+      // Normalize URL - add https:// if no protocol
+      let normalizedUrl = url;
+      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+        normalizedUrl = `https://${normalizedUrl}`;
+      }
+      
       const headers = {
         'Authorization': `Bearer ${token}`
       };
       
       // The backend will automatically use the user's saved API key from dashboard
-      const apiUrl = `${API_BASE}/api/pagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}`;
+      const apiUrl = `${API_BASE}/api/pagespeed?url=${encodeURIComponent(normalizedUrl)}&strategy=${strategy}`;
       
       const res = await fetch(apiUrl, { headers })
       const json = await res.json()
@@ -205,22 +279,37 @@ export default function SpeedForm({ user, token, requireAuth }) {
               />
 
               <SpeedMetricCard 
+                title="Basic Performance" 
+                icon="⚡"
+                items={[
+                  ['Response Time', `${data.basic?.timeMs || 0} ms`, getBasicTimeStatus(data.basic?.timeMs)],
+                  ['Status Code', data.basic?.status || '—', data.basic?.status === 200 ? 'good' : 'bad'],
+                  ['Response Size', formatBytes(data.basic?.bytes) || '—', 'good'],
+                  ['Using PageSpeed API', 'Yes', 'good']
+                ]}
+              />
+
+              <OpportunitiesCard 
                 title="Opportunities" 
                 icon="💡"
                 items={[
-                  ['Unused JavaScript', data.opportunities?.unusedJS || 'Not analyzed', 'warning'],
-                  ['Image Optimization', data.opportunities?.images || 'Not analyzed', 'warning'],
-                  ['Render-blocking Resources', data.opportunities?.renderBlocking || 'Not analyzed', 'warning']
+                  ['Unused JavaScript', data.opportunities?.unusedJS || 'Not analyzed', getOpportunityStatus(data.opportunities?.unusedJS)],
+                  ['Image Optimization', data.opportunities?.images || 'Not analyzed', getOpportunityStatus(data.opportunities?.images)],
+                  ['Render-blocking Resources', data.opportunities?.renderBlocking || 'Not analyzed', getOpportunityStatus(data.opportunities?.renderBlocking)],
+                  ['Text Compression', data.opportunities?.textCompression || 'Not analyzed', getOpportunityStatus(data.opportunities?.textCompression)],
+                  ['Modern Image Formats', data.opportunities?.nextGenFormats || 'Not analyzed', getOpportunityStatus(data.opportunities?.nextGenFormats)],
+                  ['Browser Caching', data.opportunities?.efficientCaching || 'Not analyzed', getOpportunityStatus(data.opportunities?.efficientCaching)]
                 ]}
               />
             </div>
           ) : (
             <div className="grid">
               <SpeedMetricCard 
-                title="Basic Metrics" 
+                title="Basic Performance" 
                 icon="⏱️"
                 items={[
                   ['Response Time', `${data.basic?.timeMs || 0} ms`, getBasicTimeStatus(data.basic?.timeMs)],
+                  ['Status Code', data.basic?.status || '—', data.basic?.status === 200 ? 'good' : 'bad'],
                   ['Content Size', formatBytes(data.basic?.bytes), 'good'],
                   ['Test Strategy', strategy.charAt(0).toUpperCase() + strategy.slice(1), 'good']
                 ]}

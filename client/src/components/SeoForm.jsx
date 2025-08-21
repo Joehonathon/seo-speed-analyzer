@@ -6,14 +6,33 @@ import ResultCard from './ResultCard.jsx'
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5050';
 
 export default function SeoForm({ user, token, requireAuth }) {
-  const [url, setUrl] = useState('https://example.com')
+  const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [openTooltip, setOpenTooltip] = useState(null)
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
   const [showDownloadOptions, setShowDownloadOptions] = useState(false)
+  const [urlValid, setUrlValid] = useState(true)
   const buttonRefs = useRef({})
+
+  // URL validation function
+  const validateUrl = (input) => {
+    if (!input.trim()) return true // Allow empty input
+    try {
+      const url = new URL(input.startsWith('http') ? input : `https://${input}`)
+      return url.protocol === 'http:' || url.protocol === 'https:'
+    } catch {
+      return false
+    }
+  }
+
+  // Handle URL input changes
+  const handleUrlChange = (e) => {
+    const value = e.target.value
+    setUrl(value)
+    setUrlValid(validateUrl(value))
+  }
 
   const onSubmit = async (e) => {
     e.preventDefault()
@@ -22,12 +41,15 @@ export default function SeoForm({ user, token, requireAuth }) {
       return
     }
     
+    // Normalize URL - add https:// if no protocol is present
+    const normalizedUrl = url.startsWith('http') ? url : `https://${url}`
+    
     setLoading(true); setError(''); setData(null)
     try {
       const headers = {
         'Authorization': `Bearer ${token}`
       }
-      const res = await fetch(`${API_BASE}/api/analyze?url=` + encodeURIComponent(url), { headers })
+      const res = await fetch(`${API_BASE}/api/analyze?url=` + encodeURIComponent(normalizedUrl), { headers })
       const json = await res.json()
       if (!res.ok) {
         if (res.status === 401) {
@@ -413,70 +435,271 @@ For more detailed analysis, visit: ${window.location.origin}
 
   return (
     <>
-    <section className="card">
-      <h2>SEO Analyzer</h2>
-      <p>Enter a URL. We’ll scan the HTML and compute a weighted 100-point SEO score.</p>
-      <form onSubmit={onSubmit} className="form">
-        <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://yoursite.com" />
-        <button disabled={loading}>{loading ? 'Scanning…' : 'Analyze'}</button>
-      </form>
-
-      {error && <div className="error">{error}</div>}
-      {data && (
-        <div className="results">
-          <div className="results-header">
-            <ScoreBadge score={data.score} label="SEO Score" />
-            <div className="kv">
-              <div><strong>Status:</strong> {data.status}</div>
-              <div><strong>TTFB:</strong> {data.ttfbMs} ms</div>
-              <div><strong>Words:</strong> {data.wordCount}</div>
+    <section className="seo-analyzer-v2">
+      <div className="hero-section">
+        <div className="hero-grid">
+          <div className="hero-content">
+            <div className="hero-badge">
+              <span className="badge-icon">⚡</span>
+              <span className="badge-text">SEO Analysis Tool</span>
             </div>
-            <div className="download-section">
-              <div className="download-dropdown">
-                <button 
-                  className="download-btn"
-                  onClick={() => setShowDownloadOptions(!showDownloadOptions)}
-                  title="Download SEO Report"
-                >
-                  <span className="download-icon">📄</span>
-                  Download Report
-                  <span className="dropdown-arrow">▼</span>
-                </button>
-                {showDownloadOptions && (
-                  <div className="download-options">
+            <h1 className="hero-title">
+              Optimize Your Website
+              <span className="title-accent">Performance</span>
+            </h1>
+            <p className="hero-description">
+              Get comprehensive SEO insights, technical analysis, and actionable recommendations to boost your search rankings.
+            </p>
+            
+            <div className="analyzer-form-v3">
+              <form onSubmit={onSubmit} className="search-form">
+                <div className="search-container">
+                  <div className={`search-box ${!urlValid ? 'invalid' : ''}`}>
+                    <div className="search-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="M21 21L16.65 16.65"/>
+                      </svg>
+                    </div>
+                    <input 
+                      value={url} 
+                      onChange={handleUrlChange} 
+                      placeholder="Enter Website URL" 
+                      className={`search-input ${!urlValid ? 'invalid' : ''}`}
+                      type="url"
+                      required
+                      autoComplete="url"
+                    />
+                    <div className="input-actions">
+                      {url && (
+                        <button 
+                          type="button" 
+                          className="clear-btn"
+                          onClick={() => {
+                            setUrl('')
+                            setUrlValid(true)
+                          }}
+                          title="Clear"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                          </svg>
+                        </button>
+                      )}
+                      {url && urlValid && (
+                        <div className="validation-check" title="Valid URL">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <polyline points="20,6 9,17 4,12"/>
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <button 
+                    type="submit" 
+                    disabled={loading || !url.trim() || !urlValid} 
+                    className="analyze-button"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="loading-spinner"></div>
+                        <span>Analyzing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Analyze Website</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="9,18 15,12 9,6"/>
+                        </svg>
+                      </>
+                    )}
+                  </button>
+                </div>
+                
+                <div className="search-suggestions">
+                  <div className="suggestion-text">
+                    {!urlValid && url ? (
+                      <span className="error-hint">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"/>
+                          <line x1="12" y1="8" x2="12" y2="12"/>
+                          <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        Please enter a valid URL format
+                      </span>
+                    ) : (
+                      <span className="help-hint">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"/>
+                          <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
+                          <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        Try: example.com, https://mysite.com, or any website URL
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="quick-examples">
+                    <span className="examples-label">Quick examples:</span>
                     <button 
-                      className="download-option"
+                      type="button" 
+                      className="example-btn"
                       onClick={() => {
-                        downloadSEOReport(data, url, 'txt')
-                        setShowDownloadOptions(false)
+                        setUrl('google.com')
+                        setUrlValid(true)
                       }}
                     >
-                      📄 Text Report (.txt)
+                      google.com
                     </button>
                     <button 
-                      className="download-option"
+                      type="button" 
+                      className="example-btn"
                       onClick={() => {
-                        downloadSEOReport(data, url, 'json')
-                        setShowDownloadOptions(false)
+                        setUrl('github.com')
+                        setUrlValid(true)
                       }}
                     >
-                      📊 JSON Data (.json)
+                      github.com
                     </button>
                     <button 
-                      className="download-option"
+                      type="button" 
+                      className="example-btn"
                       onClick={() => {
-                        downloadSEOReport(data, url, 'csv')
-                        setShowDownloadOptions(false)
+                        setUrl('stackoverflow.com')
+                        setUrlValid(true)
                       }}
                     >
-                      📈 CSV Spreadsheet (.csv)
+                      stackoverflow.com
                     </button>
                   </div>
-                )}
+                </div>
+              </form>
+            </div>
+          </div>
+          
+          <div className="hero-visual">
+            <div className="floating-cards">
+              <div className="float-card card-1">
+                <div className="card-icon">📊</div>
+                <div className="card-metric">95</div>
+                <div className="card-label">SEO Score</div>
+              </div>
+              <div className="float-card card-2">
+                <div className="card-icon">⚡</div>
+                <div className="card-metric">1.2s</div>
+                <div className="card-label">Load Time</div>
+              </div>
+              <div className="float-card card-3">
+                <div className="card-icon">🎯</div>
+                <div className="card-metric">12</div>
+                <div className="card-label">Issues Fixed</div>
               </div>
             </div>
           </div>
-          <div className="grid">
+        </div>
+      </div>
+
+      {error && (
+        <div className="error-notification">
+          <div className="error-header">
+            <div className="error-icon-v2">⚠️</div>
+            <h4>Analysis Failed</h4>
+          </div>
+          <p className="error-message">{error}</p>
+        </div>
+      )}
+      {data && (
+        <div className="results-v2">
+          <div className="results-hero">
+            <div className="results-header-v2">
+              <div className="results-badge">
+                <span className="badge-dot"></span>
+                Analysis Complete
+              </div>
+              <h2 className="results-title">
+                Website Analysis Results
+                <span className="domain-highlight">{new URL(url).hostname}</span>
+              </h2>
+            </div>
+            
+            <div className="score-showcase">
+              <div className="main-score">
+                <ScoreBadge score={data.score} label="Overall SEO Score" />
+              </div>
+              
+              <div className="metrics-row">
+                <div className="metric-box">
+                  <div className="metric-number">{data.status}</div>
+                  <div className="metric-title">Status</div>
+                </div>
+                <div className="metric-box">
+                  <div className="metric-number">{data.ttfbMs}ms</div>
+                  <div className="metric-title">Response Time</div>
+                </div>
+                <div className="metric-box">
+                  <div className="metric-number">{data.wordCount}</div>
+                  <div className="metric-title">Word Count</div>
+                </div>
+              </div>
+            </div>
+            <div className="export-section">
+              <button 
+                className="export-btn"
+                onClick={() => setShowDownloadOptions(!showDownloadOptions)}
+                title="Export Report"
+              >
+                <span className="export-icon">⬇</span>
+                Export Report
+              </button>
+              {showDownloadOptions && (
+                <div className="export-menu">
+                  <div className="export-option" onClick={() => {
+                    downloadSEOReport(data, url, 'txt')
+                    setShowDownloadOptions(false)
+                  }}>
+                    <div className="option-icon-v2">📄</div>
+                    <div className="option-details">
+                      <div className="option-name">Text Report</div>
+                      <div className="option-format">.txt</div>
+                    </div>
+                  </div>
+                  <div className="export-option" onClick={() => {
+                    downloadSEOReport(data, url, 'json')
+                    setShowDownloadOptions(false)
+                  }}>
+                    <div className="option-icon-v2">📊</div>
+                    <div className="option-details">
+                      <div className="option-name">JSON Data</div>
+                      <div className="option-format">.json</div>
+                    </div>
+                  </div>
+                  <div className="export-option" onClick={() => {
+                    downloadSEOReport(data, url, 'csv')
+                    setShowDownloadOptions(false)
+                  }}>
+                    <div className="option-icon-v2">📈</div>
+                    <div className="option-details">
+                      <div className="option-name">CSV Export</div>
+                      <div className="option-format">.csv</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="content-sections">
+            <div className="section-v2">
+              <div className="section-header-v2">
+                <div className="section-number">01</div>
+                <div className="section-title-group">
+                  <h3 className="section-title">Core SEO Analysis</h3>
+                  <p className="section-subtitle">Fundamental elements affecting search visibility</p>
+                </div>
+              </div>
+              <div className="cards-grid">
             <ResultCard title="Basics" items={[
               ['Title', data.metrics.title || '—'],
               ['Meta Description', data.metrics.metaDescription || '—'],
@@ -518,17 +741,24 @@ For more detailed analysis, visit: ${window.location.origin}
               ['External Links', String(data.metrics.linkTotals.external)],
               ['Image Optimization', data.metrics.imageAnalysis?.optimized ? 'Good' : 'Needs Work'],
             ]} />
-          </div>
-
-          {/* Pro-tier Advanced Metrics */}
-          {user?.tier === 'pro' && (
-            <>
-              <div className="pro-metrics-header">
-                <h4>⭐ Advanced Pro Metrics</h4>
-                <span className="pro-badge">Pro Only</span>
               </div>
-              
-              <div className="grid pro-metrics">
+            </div>
+
+            {/* Pro-tier Advanced Metrics */}
+            {user?.tier === 'pro' && (
+              <div className="section-v2 pro-section-v2">
+                <div className="section-header-v2">
+                  <div className="section-number pro-number">02</div>
+                  <div className="section-title-group">
+                    <h3 className="section-title">
+                      Advanced Pro Analysis
+                      <span className="pro-badge-v2">PRO</span>
+                    </h3>
+                    <p className="section-subtitle">Deep technical insights for professional optimization</p>
+                  </div>
+                </div>
+                
+                <div className="cards-grid pro-grid">
                 <ResultCard
                   title="Meta Information"
                   items={[
@@ -616,23 +846,27 @@ For more detailed analysis, visit: ${window.location.origin}
                     ['Security Vulnerabilities', data.metrics?.security?.vulnerabilities || 0],
                   ]}
                 />
+                </div>
               </div>
-            </>
-          )}
+            )}
 
-          {/* Tiered Priority Fixes */}
-          {((data.freeIssues?.length > 0) || (data.proIssues?.length > 0)) && (
-            <div className="top-fixes-card">
-              <div className="top-fixes-header">
-                <div className="fix-icon">⚡</div>
-                <div className="fix-header-content">
-                  <h3>Top Priority Fixes</h3>
-                  <p>Address these issues to improve your SEO score</p>
+            {/* Tiered Priority Fixes */}
+            {((data.freeIssues?.length > 0) || (data.proIssues?.length > 0)) && (
+              <div className="section-v2 fixes-section-v2">
+                <div className="section-header-v2">
+                  <div className="section-number fixes-number">03</div>
+                  <div className="section-title-group">
+                    <h3 className="section-title">
+                      Priority Action Items
+                      <div className="issues-count">
+                        {(data.freeIssues?.length || 0) + (data.proIssues?.length || 0)} Issues
+                      </div>
+                    </h3>
+                    <p className="section-subtitle">Critical optimizations to boost your SEO performance</p>
+                  </div>
                 </div>
-                <div className="fixes-count">
-                  {(data.freeIssues?.length || 0) + (data.proIssues?.length || 0)}
-                </div>
-              </div>
+                
+                <div className="fixes-container">
               
               <div className="fixes-list">
                 {/* Free tier issues - always visible */}
@@ -703,9 +937,11 @@ For more detailed analysis, visit: ${window.location.origin}
                     </React.Fragment>
                   );
                 })}
+                </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </section>

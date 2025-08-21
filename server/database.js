@@ -59,9 +59,31 @@ class Database {
         url TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         last_scan DATETIME,
+        last_seo_score INTEGER,
+        last_speed_time INTEGER,
+        last_issues_count INTEGER,
         FOREIGN KEY (user_id) REFERENCES users (id)
       )
     `);
+
+    // Add new columns to existing projects table (for existing databases)
+    this.db.run(`ALTER TABLE projects ADD COLUMN last_seo_score INTEGER`, (err) => {
+      if (err && !err.message.includes('duplicate column')) {
+        console.log('Note: last_seo_score column may already exist');
+      }
+    });
+    
+    this.db.run(`ALTER TABLE projects ADD COLUMN last_speed_time INTEGER`, (err) => {
+      if (err && !err.message.includes('duplicate column')) {
+        console.log('Note: last_speed_time column may already exist');
+      }
+    });
+    
+    this.db.run(`ALTER TABLE projects ADD COLUMN last_issues_count INTEGER`, (err) => {
+      if (err && !err.message.includes('duplicate column')) {
+        console.log('Note: last_issues_count column may already exist');
+      }
+    });
 
     // SEO reports history table
     this.db.run(`
@@ -284,7 +306,7 @@ class Database {
                SELECT id FROM seo_reports 
                WHERE project_id = ? 
                ORDER BY created_at DESC 
-               LIMIT 5
+               LIMIT 6
              )`,
             [projectId, projectId],
             function(err) {
@@ -299,6 +321,56 @@ class Database {
           );
         });
 
+        // Update project with latest metrics
+        const seoScore = seoData?.score || null;
+        
+        // Extract speed time using same logic as frontend
+        const getSpeedTime = (speedData) => {
+          if (!speedData) return null;
+          
+          // If using PageSpeed API, try to extract a meaningful timing metric
+          if (speedData.usingPageSpeedAPI && speedData.metrics) {
+            // Try Load time first (full page load)
+            if (speedData.metrics.Load) {
+              const loadMatch = speedData.metrics.Load.match(/(\d+(?:\.\d+)?)/);
+              if (loadMatch) {
+                const value = parseFloat(loadMatch[1]);
+                // Convert seconds to milliseconds if needed
+                return speedData.metrics.Load.includes('s') ? Math.round(value * 1000) : Math.round(value);
+              }
+            }
+            
+            // Fallback to Time to Interactive (TTI)
+            if (speedData.metrics.TTI) {
+              const ttiMatch = speedData.metrics.TTI.match(/(\d+(?:\.\d+)?)/);
+              if (ttiMatch) {
+                const value = parseFloat(ttiMatch[1]);
+                // Convert seconds to milliseconds if needed
+                return speedData.metrics.TTI.includes('s') ? Math.round(value * 1000) : Math.round(value);
+              }
+            }
+            
+            // Fallback to First Contentful Paint (FCP)
+            if (speedData.metrics.FCP) {
+              const fcpMatch = speedData.metrics.FCP.match(/(\d+(?:\.\d+)?)/);
+              if (fcpMatch) {
+                const value = parseFloat(fcpMatch[1]);
+                return speedData.metrics.FCP.includes('s') ? Math.round(value * 1000) : Math.round(value);
+              }
+            }
+          }
+          
+          // Fallback to basic timing (when PageSpeed API is not used)
+          return speedData.basic?.timeMs || null;
+        };
+        
+        const speedTime = getSpeedTime(speedData);
+        const issuesCount = ((seoData?.freeIssues?.length || 0) + (seoData?.proIssues?.length || 0)) || null;
+        
+        console.log(`Database: Extracted metrics - SEO: ${seoScore}, Speed: ${speedTime}ms, Issues: ${issuesCount}`);
+        
+        await this.updateProjectMetrics(projectId, seoScore, speedTime, issuesCount);
+
         console.log(`Database: Report save completed successfully with ID ${reportId}`);
         resolve(reportId);
       } catch (err) {
@@ -308,7 +380,7 @@ class Database {
     });
   }
 
-  async getProjectReports(projectId, limit = 5) {
+  async getProjectReports(projectId, limit = 6) {
     return new Promise((resolve, reject) => {
       this.db.all(
         'SELECT * FROM seo_reports WHERE project_id = ? ORDER BY created_at DESC LIMIT ?',
@@ -324,6 +396,31 @@ class Database {
     });
   }
 
+  async updateProjectMetrics(projectId, seoScore, speedTime, issuesCount) {
+    return new Promise((resolve, reject) => {
+      console.log(`Database: Updating project ${projectId} metrics - SEO: ${seoScore}, Speed: ${speedTime}ms, Issues: ${issuesCount}`);
+      
+      this.db.run(
+        `UPDATE projects 
+         SET last_scan = CURRENT_TIMESTAMP,
+             last_seo_score = ?,
+             last_speed_time = ?,
+             last_issues_count = ?
+         WHERE id = ?`,
+        [seoScore, speedTime, issuesCount, projectId],
+        function(err) {
+          if (err) {
+            console.error('Database: Failed to update project metrics:', err);
+            reject(err);
+          } else {
+            console.log(`Database: Updated project ${projectId} with latest metrics`);
+            resolve(this.changes);
+          }
+        }
+      );
+    });
+  }
+
   async getAllProjectReportsForUser(userId) {
     return new Promise((resolve, reject) => {
       console.log(`Database: Querying all reports for user ${userId}`);
@@ -333,7 +430,8 @@ class Database {
          FROM seo_reports sr 
          JOIN projects p ON sr.project_id = p.id 
          WHERE sr.user_id = ? 
-         ORDER BY sr.created_at DESC`,
+         ORDER BY sr.created_at DESC
+         LIMIT 6`,
         [userId],
         (err, rows) => {
           if (err) {

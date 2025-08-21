@@ -7,6 +7,46 @@ import PageSpeedGuide from './PageSpeedGuide.jsx';
 
 const API_BASE = 'http://localhost:5050/api';
 
+// Helper function to get displayable speed time from either PageSpeed API or basic response
+const getSpeedDisplayTime = (speedData) => {
+  if (!speedData) return 0;
+  
+  // If using PageSpeed API, try to extract a meaningful timing metric
+  if (speedData.usingPageSpeedAPI && speedData.metrics) {
+    // Try Load time first (full page load)
+    if (speedData.metrics.Load) {
+      const loadMatch = speedData.metrics.Load.match(/(\d+(?:\.\d+)?)/);
+      if (loadMatch) {
+        const value = parseFloat(loadMatch[1]);
+        // Convert seconds to milliseconds if needed
+        return speedData.metrics.Load.includes('s') ? Math.round(value * 1000) : Math.round(value);
+      }
+    }
+    
+    // Fallback to Time to Interactive (TTI)
+    if (speedData.metrics.TTI) {
+      const ttiMatch = speedData.metrics.TTI.match(/(\d+(?:\.\d+)?)/);
+      if (ttiMatch) {
+        const value = parseFloat(ttiMatch[1]);
+        // Convert seconds to milliseconds if needed
+        return speedData.metrics.TTI.includes('s') ? Math.round(value * 1000) : Math.round(value);
+      }
+    }
+    
+    // Fallback to First Contentful Paint (FCP)
+    if (speedData.metrics.FCP) {
+      const fcpMatch = speedData.metrics.FCP.match(/(\d+(?:\.\d+)?)/);
+      if (fcpMatch) {
+        const value = parseFloat(fcpMatch[1]);
+        return speedData.metrics.FCP.includes('s') ? Math.round(value * 1000) : Math.round(value);
+      }
+    }
+  }
+  
+  // Fallback to basic timing (when PageSpeed API is not used)
+  return speedData.basic?.timeMs || 0;
+};
+
 export default function UserDashboard({ user, token, onLogout, onNavigate }) {
   const [profile, setProfile] = useState(null);
   const [projects, setProjects] = useState([]);
@@ -183,11 +223,10 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
         
         console.log('Report saved successfully to database:', saveResponse.data);
         
-        // Refresh saved reports if reports tab is active
-        if (activeTab === 'reports') {
-          console.log('Refreshing reports tab...');
-          fetchSavedReports();
-        }
+        // Always refresh saved reports and projects after successful analysis
+        console.log('Refreshing saved reports and projects...');
+        fetchSavedReports();
+        fetchProjects(); // Refresh projects to get updated metrics
       } catch (saveError) {
         console.error('Failed to save report:', saveError.response?.data || saveError.message);
         alert('Warning: Analysis completed but report saving failed. Please check console for details.');
@@ -741,128 +780,291 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
       )}
 
       {activeTab === 'projects' && user.tier === 'pro' && (
-        <div className="projects-section">
-          <div className="projects-header">
-            <h4>Your Projects</h4>
-            <button 
-              className="add-project-btn"
-              onClick={() => setShowNewProject(true)}
-            >
-              + Add Project
-            </button>
+        <div className="projects-page-modern">
+          {/* Header Section */}
+          <div className="projects-header-modern">
+            <div className="header-content">
+              <div className="header-title">
+                <h3>🚀 Projects Dashboard</h3>
+                <p>Manage and monitor your website SEO performance</p>
+              </div>
+              <div className="header-stats">
+                <div className="stat-bubble">
+                  <span className="stat-number">{projects.length}</span>
+                  <span className="stat-label">Total Projects</span>
+                </div>
+                <div className="stat-bubble">
+                  <span className="stat-number">
+                    {projects.length > 0 && projects.some(p => p.last_scan) 
+                      ? Math.max(...projects
+                          .filter(p => p.last_scan)
+                          .map(p => {
+                            const daysDiff = Math.floor((new Date() - new Date(p.last_scan)) / (1000 * 60 * 60 * 24));
+                            return Math.max(0, daysDiff); // Ensure minimum of 0 days
+                          }))
+                      : 'N/A'
+                    }
+                  </span>
+                  <span className="stat-label">Days Since Last Scan</span>
+                </div>
+                <div className="stat-bubble">
+                  <span className="stat-number">
+                    {(() => {
+                      // Use persistent data from database, fallback to live results
+                      const projectsWithScores = projects.filter(p => {
+                        const liveScore = analysisResults[p.id]?.seo?.score;
+                        const storedScore = p.last_seo_score;
+                        return liveScore || storedScore;
+                      });
+                      
+                      if (projectsWithScores.length === 0) return 'N/A';
+                      
+                      const avgScore = Math.round(
+                        projectsWithScores.reduce((sum, p) => {
+                          const score = analysisResults[p.id]?.seo?.score || p.last_seo_score;
+                          return sum + score;
+                        }, 0) / projectsWithScores.length
+                      );
+                      
+                      return avgScore;
+                    })()}
+                  </span>
+                  <span className="stat-label">Average SEO Score</span>
+                </div>
+              </div>
+            </div>
+            <div className="header-actions">
+              <button 
+                className="add-project-btn-modern"
+                onClick={() => setShowNewProject(true)}
+              >
+                <span className="btn-icon">✨</span>
+                <span>Add New Project</span>
+              </button>
+            </div>
           </div>
 
+          {/* New Project Modal/Form */}
           {showNewProject && (
-            <div className="new-project-form">
-              <h5>Create New Project</h5>
-              <input
-                type="text"
-                placeholder="Project name"
-                value={newProject.name}
-                onChange={(e) => setNewProject({...newProject, name: e.target.value})}
-              />
-              <input
-                type="url"
-                placeholder="Website URL"
-                value={newProject.url}
-                onChange={(e) => setNewProject({...newProject, url: e.target.value})}
-              />
-              <div className="form-actions">
-                <button onClick={createProject} className="create-btn">Create</button>
-                <button onClick={() => setShowNewProject(false)} className="cancel-btn">Cancel</button>
+            <div className="new-project-modal">
+              <div className="modal-backdrop" onClick={() => setShowNewProject(false)}></div>
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h4>🌟 Create New Project</h4>
+                  <button 
+                    className="modal-close"
+                    onClick={() => setShowNewProject(false)}
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className="modal-body">
+                  <p>Add a new website to your dashboard and start tracking its SEO performance.</p>
+                  <div className="form-modern">
+                    <div className="input-group-modern">
+                      <label>Project Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., My Business Website"
+                        value={newProject.name}
+                        onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+                        className="input-modern"
+                      />
+                    </div>
+                    <div className="input-group-modern">
+                      <label>Website URL</label>
+                      <input
+                        type="url"
+                        placeholder="https://example.com"
+                        value={newProject.url}
+                        onChange={(e) => setNewProject({...newProject, url: e.target.value})}
+                        className="input-modern"
+                      />
+                      <div className="input-hint">Make sure to include https:// or http://</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button 
+                    className="btn-cancel-modern"
+                    onClick={() => setShowNewProject(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="btn-create-modern"
+                    onClick={createProject}
+                    disabled={!newProject.name.trim() || !newProject.url.trim()}
+                  >
+                    <span className="btn-icon">🚀</span>
+                    Create Project
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          <div className="projects-grid">
+          {/* Projects Grid */}
+          <div className="projects-grid-modern">
             {projects.length === 0 ? (
-              <div className="no-projects">
-                <p>No projects yet. Create your first project to start tracking SEO performance!</p>
+              <div className="empty-state-modern">
+                <div className="empty-icon">📊</div>
+                <h4>No Projects Yet</h4>
+                <p>Create your first project to start tracking SEO performance and monitoring your website's health.</p>
+                <button 
+                  className="btn-primary-modern"
+                  onClick={() => setShowNewProject(true)}
+                >
+                  <span className="btn-icon">✨</span>
+                  Create Your First Project
+                </button>
               </div>
             ) : (
               projects.map(project => {
                 const isRunning = runningAnalysis === project.id;
                 const results = analysisResults[project.id];
                 
+                const getRelativeTime = (dateStr) => {
+                  const date = new Date(dateStr);
+                  const now = new Date();
+                  const diffMs = now - date;
+                  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                  
+                  if (diffHours < 1) return 'Just now';
+                  if (diffHours < 24) return `${diffHours}h ago`;
+                  if (diffDays < 7) return `${diffDays}d ago`;
+                  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                };
+                
                 return (
-                  <div key={project.id} className="project-card">
-                    <div className="project-header">
+                  <div key={project.id} className="project-card-modern">
+                    <div className="project-card-header">
                       <div className="project-info">
-                        <h5>{project.name}</h5>
-                        <p className="project-url">{project.url}</p>
+                        <div className="project-avatar">
+                          <span>🌐</span>
+                        </div>
+                        <div className="project-details">
+                          <h5>{project.name}</h5>
+                          <p className="project-url">{project.url}</p>
+                          <div className="project-meta">
+                            <span>Created {getRelativeTime(project.created_at)}</span>
+                            {project.last_scan && (
+                              <span> • Last scan {getRelativeTime(project.last_scan)}</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <button 
-                        className="delete-btn"
-                        onClick={() => deleteProject(project)}
-                        title="Delete project"
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <div className="project-meta">
-                      <span>Created: {new Date(project.created_at).toLocaleDateString()}</span>
-                      {project.last_scan && (
-                        <span>Last scan: {new Date(project.last_scan).toLocaleDateString()}</span>
-                      )}
+                      <div className="project-menu">
+                        <button 
+                          className="menu-btn"
+                          onClick={() => deleteProject(project)}
+                          title="Delete project"
+                        >
+                          <span className="menu-icon">−</span>
+                        </button>
+                      </div>
                     </div>
                     
-                    {results && (
-                      <div className="analysis-summary">
-                        <div className="summary-item">
-                          <span className="summary-label">SEO Score:</span>
-                          {results.seo?.error ? (
-                            <span className="summary-value bad">Error</span>
-                          ) : (
-                            <span className={`summary-value ${(results.seo?.score || 0) >= 80 ? 'good' : (results.seo?.score || 0) >= 60 ? 'ok' : 'bad'}`}>
-                              {results.seo?.score || 0}/100
-                            </span>
-                          )}
+                    {(results || project.last_seo_score !== null) ? (
+                      <div className="project-metrics-modern">
+                        <div className="metrics-row">
+                          <div className="metric-item">
+                            <div className="metric-icon seo">🔍</div>
+                            <div className="metric-content">
+                              <span className="metric-label">SEO Score</span>
+                              {(() => {
+                                // Use live results if available, otherwise use stored data
+                                if (results?.seo?.error) {
+                                  return <span className="metric-value error">Error</span>;
+                                }
+                                const score = results?.seo?.score || project.last_seo_score || 0;
+                                return (
+                                  <span className={`metric-value score-${Math.floor(score / 20)}`}>
+                                    {score}/100
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                          
+                          <div className="metric-item">
+                            <div className="metric-icon speed">⚡</div>
+                            <div className="metric-content">
+                              <span className="metric-label">Load Time</span>
+                              {(() => {
+                                // Use live results if available, otherwise use stored data
+                                if (results?.speed?.error) {
+                                  return <span className="metric-value error">Error</span>;
+                                }
+                                const speedTime = results ? getSpeedDisplayTime(results.speed) : project.last_speed_time;
+                                if (!speedTime) {
+                                  return <span className="metric-value">N/A</span>;
+                                }
+                                return (
+                                  <span className={`metric-value speed-${speedTime <= 500 ? 'fast' : speedTime <= 1500 ? 'medium' : 'slow'}`}>
+                                    {speedTime}ms
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                          
+                          <div className="metric-item">
+                            <div className="metric-icon issues">⚠️</div>
+                            <div className="metric-content">
+                              <span className="metric-label">Issues</span>
+                              {(() => {
+                                // Use live results if available, otherwise use stored data
+                                if (results?.seo?.error) {
+                                  return <span className="metric-value error">Error</span>;
+                                }
+                                const issuesCount = results 
+                                  ? ((results.seo?.freeIssues?.length || 0) + (results.seo?.proIssues?.length || 0))
+                                  : (project.last_issues_count || 0);
+                                return (
+                                  <span className={`metric-value issues-${issuesCount === 0 ? 'none' : issuesCount <= 5 ? 'few' : 'many'}`}>
+                                    {issuesCount}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </div>
                         </div>
-                        <div className="summary-item">
-                          <span className="summary-label">Response Time:</span>
-                          {results.speed?.error ? (
-                            <span className="summary-value bad">Error</span>
-                          ) : (
-                            <span className={`summary-value ${(results.speed?.basic?.timeMs || 0) <= 200 ? 'good' : (results.speed?.basic?.timeMs || 0) <= 500 ? 'ok' : 'bad'}`}>
-                              {results.speed?.basic?.timeMs || 0}ms
-                            </span>
-                          )}
-                        </div>
-                        <div className="summary-item">
-                          <span className="summary-label">Priority Fixes:</span>
-                          {results.seo?.error ? (
-                            <span className="summary-value bad">Error</span>
-                          ) : (
-                            <span className={`summary-value ${(results.seo?.issues?.length || 0) === 0 ? 'good' : (results.seo?.issues?.length || 0) <= 3 ? 'ok' : 'bad'}`}>
-                              {results.seo?.issues?.length || 0}
-                            </span>
-                          )}
-                        </div>
+                      </div>
+                    ) : (
+                      <div className="project-no-data">
+                        <span className="no-data-icon">📋</span>
+                        <span className="no-data-text">No analysis data yet</span>
                       </div>
                     )}
                     
-                    <div className="project-actions">
+                    <div className="project-actions-modern">
                       <button 
-                        className={`scan-btn ${isRunning ? 'running' : ''}`}
+                        className={`action-btn primary ${isRunning ? 'loading' : ''}`}
                         onClick={() => runProjectAnalysis(project)}
                         disabled={isRunning}
                       >
                         {isRunning ? (
                           <>
-                            <span className="spinner"></span>
-                            Running Analysis...
+                            <span className="loading-spinner"></span>
+                            <span>Analyzing...</span>
                           </>
                         ) : (
-                          'Run Analysis'
+                          <>
+                            <span className="btn-icon">🔍</span>
+                            <span>Run Analysis</span>
+                          </>
                         )}
                       </button>
                       
                       {results && (
                         <button 
-                          className="view-report-btn"
+                          className="action-btn secondary"
                           onClick={() => setActiveTab('report-detail-' + project.id)}
                         >
-                          View Report
+                          <span className="btn-icon">📊</span>
+                          <span>View Report</span>
                         </button>
                       )}
                     </div>
@@ -878,7 +1080,7 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
         <div className="reports-section">
           <div className="reports-header-section">
             <div className="reports-title">
-              <h4>📈 Analysis Reports History</h4>
+              <h4>⚡ Analysis Reports History</h4>
               <p className="reports-subtitle">View and analyze your recent SEO performance reports</p>
             </div>
           </div>
@@ -903,148 +1105,135 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
               </div>
             ) : (
               <div className="reports-grid">
-                {/* Group reports by project */}
-                {Object.entries(
-                  savedReports.reduce((groups, report) => {
-                    const projectKey = report.project_id;
-                    if (!groups[projectKey]) {
-                      groups[projectKey] = {
-                        project_name: report.project_name,
-                        project_url: report.project_url,
-                        project_id: report.project_id,
-                        reports: []
-                      };
-                    }
-                    groups[projectKey].reports.push(report);
-                    return groups;
-                  }, {})
-                ).map(([projectId, projectData]) => (
-                  <div key={projectId} className="project-reports-card">
-                    <div className="project-card-header">
-                      <div className="project-info">
-                        <h5 className="project-name">{projectData.project_name}</h5>
-                        <p className="project-url">{projectData.project_url}</p>
-                      </div>
-                      <div className="reports-count-badge">
-                        {projectData.reports.length} report{projectData.reports.length !== 1 ? 's' : ''}
-                      </div>
+                <div className="project-reports-card">
+                  <div className="project-card-header">
+                    <div className="project-info">
+                      <h5 className="project-name">Recent Analysis Reports</h5>
+                      <p className="project-url">Last 6 reports from all projects</p>
                     </div>
-                    
-                    <div className="reports-timeline">
-                      {projectData.reports.slice(0, 5).map((report, index) => {
-                        const reportDate = new Date(report.created_at);
-                        const now = new Date();
-                        const diffTime = Math.abs(now - reportDate);
-                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                        
-                        const getRelativeTime = (date) => {
-                          const now = new Date();
-                          const diffMs = now - date;
-                          const diffMins = Math.floor(diffMs / (1000 * 60));
-                          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-                          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                          
-                          if (diffMins < 1) return 'Just now';
-                          if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
-                          if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-                          if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-                          return date.toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric',
-                            year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-                          });
-                        };
-                        
-                        return (
-                          <div key={report.id} className={`report-card ${index === 0 ? 'latest' : ''}`}>
-                            <div className="report-timeline-marker">
-                              {index === 0 && <div className="latest-indicator">Latest</div>}
-                            </div>
-                            
-                            <div className="report-card-content">
-                              <div className="report-card-header">
-                                <div className="report-timestamp">
-                                  <span className="relative-time">{getRelativeTime(reportDate)}</span>
-                                  <span className="full-time">
-                                    {reportDate.toLocaleString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric',
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                      hour12: true
-                                    })}
-                                  </span>
-                                </div>
-                                <button 
-                                  className="view-report-btn modern"
-                                  onClick={() => setActiveTab('saved-report-detail-' + report.id)}
-                                  title="View detailed report"
-                                >
-                                  <span className="btn-icon">👁</span>
-                                  View
-                                </button>
-                              </div>
-                              
-                              <div className="report-metrics">
-                                <div className="metric-card seo">
-                                  <div className="metric-icon">🔍</div>
-                                  <div className="metric-info">
-                                    <span className="metric-label">SEO Score</span>
-                                    {!report.report_data.seo ? (
-                                      <span className="metric-value error">Error</span>
-                                    ) : (
-                                      <div className="score-display">
-                                        <span className={`metric-value ${(report.report_data.seo?.score || 0) >= 80 ? 'excellent' : (report.report_data.seo?.score || 0) >= 60 ? 'good' : (report.report_data.seo?.score || 0) >= 40 ? 'fair' : 'poor'}`}>
-                                          {report.report_data.seo?.score || 0}
-                                        </span>
-                                        <span className="score-max">/100</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                
-                                <div className="metric-card speed">
-                                  <div className="metric-icon">⚡</div>
-                                  <div className="metric-info">
-                                    <span className="metric-label">Load Time</span>
-                                    {!report.report_data.speed ? (
-                                      <span className="metric-value error">Error</span>
-                                    ) : (
-                                      <span className={`metric-value ${(report.report_data.speed?.basic?.timeMs || 0) <= 200 ? 'excellent' : (report.report_data.speed?.basic?.timeMs || 0) <= 500 ? 'good' : (report.report_data.speed?.basic?.timeMs || 0) <= 1000 ? 'fair' : 'poor'}`}>
-                                        {report.report_data.speed?.basic?.timeMs || 0}ms
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                
-                                <div className="metric-card issues">
-                                  <div className="metric-icon">⚠️</div>
-                                  <div className="metric-info">
-                                    <span className="metric-label">Issues</span>
-                                    {!report.report_data.seo ? (
-                                      <span className="metric-value error">Error</span>
-                                    ) : (
-                                      <span className={`metric-value ${((report.report_data.seo?.freeIssues?.length || 0) + (report.report_data.seo?.proIssues?.length || 0)) === 0 ? 'excellent' : ((report.report_data.seo?.freeIssues?.length || 0) + (report.report_data.seo?.proIssues?.length || 0)) <= 3 ? 'good' : ((report.report_data.seo?.freeIssues?.length || 0) + (report.report_data.seo?.proIssues?.length || 0)) <= 6 ? 'fair' : 'poor'}`}>
-                                        {(report.report_data.seo?.freeIssues?.length || 0) + (report.report_data.seo?.proIssues?.length || 0)}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {index === 0 && (
-                                <div className="latest-report-badge">
-                                  <span>Most Recent</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="reports-count-badge">
+                      {savedReports.length} report{savedReports.length !== 1 ? 's' : ''}
                     </div>
                   </div>
-                ))}
+                  
+                  <div className="reports-timeline">
+                    {savedReports.slice(0, 6).map((report, index) => {
+                      const reportDate = new Date(report.created_at);
+                      const now = new Date();
+                      const diffTime = Math.abs(now - reportDate);
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      
+                      const getRelativeTime = (date) => {
+                        const now = new Date();
+                        const diffMs = now - date;
+                        const diffMins = Math.floor(diffMs / (1000 * 60));
+                        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                        
+                        if (diffMins < 1) return 'Just now';
+                        if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+                        if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+                        if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+                        return date.toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+                        });
+                      };
+                      
+                      return (
+                        <div key={report.id} className={`report-card ${index === 0 ? 'latest' : ''}`}>
+                          <div className="report-timeline-marker">
+                            {index === 0 && <div className="latest-indicator">Latest</div>}
+                          </div>
+                          
+                          <div className="report-card-content">
+                            <div className="report-card-header">
+                              <div className="project-info-inline">
+                                <h6 className="report-project-name">{report.project_name}</h6>
+                                <span className="report-project-url">{report.project_url}</span>
+                              </div>
+                              <div className="report-timestamp">
+                                <span className="relative-time">{getRelativeTime(reportDate)}</span>
+                                <span className="full-time">
+                                  {reportDate.toLocaleString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    hour12: true
+                                  })}
+                                </span>
+                              </div>
+                              <button 
+                                className="view-report-btn modern"
+                                onClick={() => setActiveTab('saved-report-detail-' + report.id)}
+                                title="View detailed report"
+                              >
+                                <span className="btn-icon">👁</span>
+                                View
+                              </button>
+                            </div>
+                            
+                            <div className="report-metrics">
+                              <div className="metric-card seo">
+                                <div className="metric-icon">🔍</div>
+                                <div className="metric-info">
+                                  <span className="metric-label">SEO Score</span>
+                                  {!report.report_data.seo ? (
+                                    <span className="metric-value error">Error</span>
+                                  ) : (
+                                    <div className="score-display">
+                                      <span className={`metric-value ${(report.report_data.seo?.score || 0) >= 80 ? 'excellent' : (report.report_data.seo?.score || 0) >= 60 ? 'good' : (report.report_data.seo?.score || 0) >= 40 ? 'fair' : 'poor'}`}>
+                                        {report.report_data.seo?.score || 0}
+                                      </span>
+                                      <span className="score-max">/100</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <div className="metric-card speed">
+                                <div className="metric-icon">⚡</div>
+                                <div className="metric-info">
+                                  <span className="metric-label">Load Time</span>
+                                  {!report.report_data.speed ? (
+                                    <span className="metric-value error">Error</span>
+                                  ) : (
+                                    <span className={`metric-value ${getSpeedDisplayTime(report.report_data.speed) <= 200 ? 'excellent' : getSpeedDisplayTime(report.report_data.speed) <= 500 ? 'good' : getSpeedDisplayTime(report.report_data.speed) <= 1000 ? 'fair' : 'poor'}`}>
+                                      {getSpeedDisplayTime(report.report_data.speed)}ms
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <div className="metric-card issues">
+                                <div className="metric-icon">⚠️</div>
+                                <div className="metric-info">
+                                  <span className="metric-label">Issues</span>
+                                  {!report.report_data.seo ? (
+                                    <span className="metric-value error">Error</span>
+                                  ) : (
+                                    <span className={`metric-value ${((report.report_data.seo?.freeIssues?.length || 0) + (report.report_data.seo?.proIssues?.length || 0)) === 0 ? 'excellent' : ((report.report_data.seo?.freeIssues?.length || 0) + (report.report_data.seo?.proIssues?.length || 0)) <= 3 ? 'good' : ((report.report_data.seo?.freeIssues?.length || 0) + (report.report_data.seo?.proIssues?.length || 0)) <= 6 ? 'fair' : 'poor'}`}>
+                                      {(report.report_data.seo?.freeIssues?.length || 0) + (report.report_data.seo?.proIssues?.length || 0)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {index === 0 && (
+                              <div className="latest-report-badge">
+                                <span>Most Recent</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -1336,29 +1525,86 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
               </div>
             )}
 
-            {/* Speed Analysis Section - Basic metrics */}
+            {/* Speed Analysis Section */}
             {results.speed && !results.speed.error && (
               <div className="analysis-section">
                 <div className="section-header">
                   <h3>⚡ Speed Analysis Report</h3>
-                  <div className="speed-badge">
-                    <span className={`speed-time ${(results.speed.basic?.timeMs || 0) <= 200 ? 'good' : (results.speed.basic?.timeMs || 0) <= 500 ? 'ok' : 'bad'}`}>
-                      {results.speed.basic?.timeMs || 0}ms
-                    </span>
-                  </div>
+                  {results.speed.performanceScore ? (
+                    <ScoreBadge score={results.speed.performanceScore} label="Performance Score" />
+                  ) : (
+                    <div className="speed-badge">
+                      <span className={`speed-time ${getSpeedDisplayTime(results.speed) <= 200 ? 'good' : getSpeedDisplayTime(results.speed) <= 500 ? 'ok' : 'bad'}`}>
+                        {getSpeedDisplayTime(results.speed)}ms
+                      </span>
+                    </div>
+                  )}
                 </div>
                 
-                <div className="analysis-grid">
-                  <ResultCard
-                    title="Basic Performance"
-                    items={[
-                      ['Response Time', `${results.speed.basic?.timeMs || 0}ms`],
-                      ['Status Code', results.speed.basic?.status || '—'],
-                      ['Response Size', `${Math.round((results.speed.basic?.bytes || 0) / 1024)}KB`],
-                      ['Using PageSpeed API', results.speed.usingPageSpeedAPI ? 'Yes' : 'No'],
-                    ]}
-                  />
-                </div>
+                {results.speed.usingPageSpeedAPI ? (
+                  <div className="analysis-grid">
+                    <ResultCard
+                      title="Core Web Vitals"
+                      items={[
+                        ['First Contentful Paint (FCP)', results.speed.metrics?.FCP || '—'],
+                        ['Largest Contentful Paint (LCP)', results.speed.metrics?.LCP || '—'],
+                        ['Cumulative Layout Shift (CLS)', results.speed.metrics?.CLS || '—']
+                      ]}
+                    />
+                    
+                    <ResultCard
+                      title="Performance Metrics"
+                      items={[
+                        ['Total Blocking Time (TBT)', results.speed.metrics?.TBT || '—'],
+                        ['Speed Index', results.speed.metrics?.SI || '—'],
+                        ['Time to Interactive (TTI)', results.speed.metrics?.TTI || '—']
+                      ]}
+                    />
+
+                    <ResultCard
+                      title="Loading Analysis"
+                      items={[
+                        ['First Meaningful Paint', results.speed.metrics?.FMP || '—'],
+                        ['DOM Content Loaded', results.speed.metrics?.DCL || '—'],
+                        ['Full Load Time', results.speed.metrics?.Load || '—']
+                      ]}
+                    />
+
+                    <ResultCard
+                      title="Opportunities"
+                      items={[
+                        ['Unused JavaScript', results.speed.opportunities?.unusedJS || 'Not analyzed'],
+                        ['Image Optimization', results.speed.opportunities?.images || 'Not analyzed'],
+                        ['Render-blocking Resources', results.speed.opportunities?.renderBlocking || 'Not analyzed'],
+                        ['Text Compression', results.speed.opportunities?.textCompression || 'Not analyzed'],
+                        ['Modern Image Formats', results.speed.opportunities?.nextGenFormats || 'Not analyzed'],
+                        ['Browser Caching', results.speed.opportunities?.efficientCaching || 'Not analyzed']
+                      ]}
+                    />
+
+                    <ResultCard
+                      title="Basic Performance"
+                      items={[
+                        ['Response Time', `${getSpeedDisplayTime(results.speed)}ms`],
+                        ['Status Code', results.speed.basic?.status || '—'],
+                        ['Response Size', `${Math.round((results.speed.basic?.bytes || 0) / 1024)}KB`],
+                        ['Using PageSpeed API', 'Yes']
+                      ]}
+                    />
+                  </div>
+                ) : (
+                  <div className="analysis-grid">
+                    <ResultCard
+                      title="Basic Performance"
+                      items={[
+                        ['Response Time', `${getSpeedDisplayTime(results.speed)}ms`],
+                        ['Status Code', results.speed.basic?.status || '—'],
+                        ['Response Size', `${Math.round((results.speed.basic?.bytes || 0) / 1024)}KB`],
+                        ['Using PageSpeed API', 'No']
+                      ]}
+                    />
+                  </div>
+                )}
 
                 {!results.speed.usingPageSpeedAPI && (
                   <div className="info-section">
@@ -1672,24 +1918,81 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
               <div className="analysis-section">
                 <div className="section-header">
                   <h3>⚡ Speed Analysis Report</h3>
-                  <div className="speed-badge">
-                    <span className={`speed-time ${(results.speed.basic?.timeMs || 0) <= 200 ? 'good' : (results.speed.basic?.timeMs || 0) <= 500 ? 'ok' : 'bad'}`}>
-                      {results.speed.basic?.timeMs || 0}ms
-                    </span>
-                  </div>
+                  {results.speed.performanceScore ? (
+                    <ScoreBadge score={results.speed.performanceScore} label="Performance Score" />
+                  ) : (
+                    <div className="speed-badge">
+                      <span className={`speed-time ${getSpeedDisplayTime(results.speed) <= 200 ? 'good' : getSpeedDisplayTime(results.speed) <= 500 ? 'ok' : 'bad'}`}>
+                        {getSpeedDisplayTime(results.speed)}ms
+                      </span>
+                    </div>
+                  )}
                 </div>
                 
-                <div className="analysis-grid">
-                  <ResultCard
-                    title="Basic Performance"
-                    items={[
-                      ['Response Time', `${results.speed.basic?.timeMs || 0}ms`],
-                      ['Status Code', results.speed.basic?.status || '—'],
-                      ['Response Size', `${Math.round((results.speed.basic?.bytes || 0) / 1024)}KB`],
-                      ['Using PageSpeed API', results.speed.usingPageSpeedAPI ? 'Yes' : 'No'],
-                    ]}
-                  />
-                </div>
+                {results.speed.usingPageSpeedAPI ? (
+                  <div className="analysis-grid">
+                    <ResultCard
+                      title="Core Web Vitals"
+                      items={[
+                        ['First Contentful Paint (FCP)', results.speed.metrics?.FCP || '—'],
+                        ['Largest Contentful Paint (LCP)', results.speed.metrics?.LCP || '—'],
+                        ['Cumulative Layout Shift (CLS)', results.speed.metrics?.CLS || '—']
+                      ]}
+                    />
+                    
+                    <ResultCard
+                      title="Performance Metrics"
+                      items={[
+                        ['Total Blocking Time (TBT)', results.speed.metrics?.TBT || '—'],
+                        ['Speed Index', results.speed.metrics?.SI || '—'],
+                        ['Time to Interactive (TTI)', results.speed.metrics?.TTI || '—']
+                      ]}
+                    />
+
+                    <ResultCard
+                      title="Loading Analysis"
+                      items={[
+                        ['First Meaningful Paint', results.speed.metrics?.FMP || '—'],
+                        ['DOM Content Loaded', results.speed.metrics?.DCL || '—'],
+                        ['Full Load Time', results.speed.metrics?.Load || '—']
+                      ]}
+                    />
+
+                    <ResultCard
+                      title="Opportunities"
+                      items={[
+                        ['Unused JavaScript', results.speed.opportunities?.unusedJS || 'Not analyzed'],
+                        ['Image Optimization', results.speed.opportunities?.images || 'Not analyzed'],
+                        ['Render-blocking Resources', results.speed.opportunities?.renderBlocking || 'Not analyzed'],
+                        ['Text Compression', results.speed.opportunities?.textCompression || 'Not analyzed'],
+                        ['Modern Image Formats', results.speed.opportunities?.nextGenFormats || 'Not analyzed'],
+                        ['Browser Caching', results.speed.opportunities?.efficientCaching || 'Not analyzed']
+                      ]}
+                    />
+
+                    <ResultCard
+                      title="Basic Performance"
+                      items={[
+                        ['Response Time', `${getSpeedDisplayTime(results.speed)}ms`],
+                        ['Status Code', results.speed.basic?.status || '—'],
+                        ['Response Size', `${Math.round((results.speed.basic?.bytes || 0) / 1024)}KB`],
+                        ['Using PageSpeed API', 'Yes']
+                      ]}
+                    />
+                  </div>
+                ) : (
+                  <div className="analysis-grid">
+                    <ResultCard
+                      title="Basic Performance"
+                      items={[
+                        ['Response Time', `${getSpeedDisplayTime(results.speed)}ms`],
+                        ['Status Code', results.speed.basic?.status || '—'],
+                        ['Response Size', `${Math.round((results.speed.basic?.bytes || 0) / 1024)}KB`],
+                        ['Using PageSpeed API', 'No']
+                      ]}
+                    />
+                  </div>
+                )}
 
                 {!results.speed.usingPageSpeedAPI && (
                   <div className="info-section">
