@@ -12,10 +12,15 @@ function normalizeUrl(u) {
 }
 
 function scoreItem(ok, weight) {
+  if (weight === undefined || weight === null) {
+    console.warn('scoreItem called with undefined weight:', weight);
+    return 0;
+  }
   return ok ? weight : 0;
 }
 
 async function analyzeUrl(targetUrl, userTier = 'free') {
+  console.log('SEO Analysis - User Tier:', userTier);
   const url = normalizeUrl(targetUrl);
   const urlObj = new URL(url);
   const started = Date.now();
@@ -98,6 +103,7 @@ async function analyzeUrl(targetUrl, userTier = 'free') {
 
   // Enhanced meta information analysis (always run for pro issue detection)
   const isPro = userTier === 'pro';
+  console.log('SEO Analysis - isPro:', isPro, 'userTier:', userTier);
   let metaAnalysis, schemaAnalysis, serverConfigAnalysis, accessibilityAnalysis, contentQualityAnalysis, linkAnalysis, imageAnalysisAdvanced, mobileFriendlyAnalysis, securityAnalysis;
   
   try {
@@ -163,21 +169,30 @@ async function analyzeUrl(targetUrl, userTier = 'free') {
     security: 6
   } : {
     // Free tier: Basic analysis only (weights total 100)
-    statusOk: 8,
-    https: 8,
-    title: 12,
-    titleLength: 4,
-    metaDescription: 12,
-    metaDescriptionLength: 4,
-    h1Single: 8,
-    headerHierarchy: 6,
-    viewport: 8,
-    lang: 4,
-    canonicalTag: 6,
-    ogTags: 6,
-    twitterCard: 4,
-    imgAlt: 8,
-    imageOptimization: 6,
+    statusOk: 7,
+    https: 7,
+    title: 11,
+    titleLength: 3,
+    metaDescription: 11,
+    metaDescriptionLength: 3,
+    h1Single: 7,
+    headerHierarchy: 5,
+    viewport: 7,
+    lang: 3,
+    canonicalTag: 5,
+    ogTags: 5,
+    twitterCard: 3,
+    imgAlt: 7,
+    imageOptimization: 5,
+    internalLinks: 3,
+    externalLinks: 2,
+    socialMediaLinks: 2,
+    jsonLd: 3,
+    ttfb: 3,
+    wordCount: 3,
+    keywordPlacement: 4,
+    robotsMeta: 2,
+    brokenLinks: 2,
     // No advanced metrics for free users
     metaInformation: 0,
     schemaMarkup: 0,
@@ -190,6 +205,7 @@ async function analyzeUrl(targetUrl, userTier = 'free') {
     security: 0
   };
 
+  console.log('Selected weights for tier:', userTier, isPro ? 'pro weights' : 'free weights');
   let score = 0;
   score += scoreItem(status >= 200 && status < 400, weights.statusOk);
   score += scoreItem(usesHttps, weights.https);
@@ -272,7 +288,8 @@ async function analyzeUrl(targetUrl, userTier = 'free') {
   // Combine issues based on user tier for backward compatibility
   const issues = isPro ? [...freeIssues, ...proIssues] : freeIssues;
   
-
+  console.log('Final SEO score calculated:', Math.round(score), 'for tier:', userTier);
+  
   return {
       url,
       status,

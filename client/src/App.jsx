@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react'
+import './styles.css'
 import SeoForm from './components/SeoForm.jsx'
 import SpeedForm from './components/SpeedForm.jsx'
 import About from './components/About.jsx'
 import Docs from './components/Docs.jsx'
 import Contact from './components/Contact.jsx'
+import Blog from './components/Blog.jsx'
+import BlogPost from './components/BlogPostNew.jsx'
 import SeoBestPractices from './components/SeoBestPractices.jsx'
 import SpeedOptimization from './components/SpeedOptimization.jsx'
 import PageSpeedApiDocs from './components/PageSpeedApiDocs.jsx'
@@ -15,6 +18,7 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [token, setToken] = useState(null)
   const [showAuth, setShowAuth] = useState(false)
+  const [currentBlogPost, setCurrentBlogPost] = useState(null)
 
   useEffect(() => {
     // Check for existing auth on app load
@@ -48,6 +52,18 @@ export default function App() {
     setUser(null)
   }
 
+  const handleBlogPostNavigation = (postId) => {
+    setCurrentBlogPost(postId)
+    setTab('blog-post')
+    window.scrollTo(0, 0)
+  }
+
+  const handleBackToBlog = () => {
+    setCurrentBlogPost(null)
+    setTab('blog')
+    window.scrollTo(0, 0)
+  }
+
   const requireAuth = () => {
     if (!user) {
       setShowAuth(true)
@@ -79,7 +95,7 @@ export default function App() {
                   Dashboard
                 </button>
               )}
-              <button className={`nav-link ${tab==='about'?'active':''}`} onClick={() => setTab('about')}>About</button>
+              <button className={`nav-link ${tab==='blog'?'active':''}`} onClick={() => setTab('blog')}>Blog</button>
               <button className={`nav-link ${tab==='docs'?'active':''}`} onClick={() => setTab('docs')}>Docs</button>
               <button className={`nav-link ${tab==='contact'?'active':''}`} onClick={() => setTab('contact')}>Contact</button>
               {user ? (
@@ -100,6 +116,8 @@ export default function App() {
           {tab === 'seo' && <SeoForm user={user} token={token} requireAuth={requireAuth} />}
           {tab === 'speed' && <SpeedForm user={user} token={token} requireAuth={requireAuth} />}
           {tab === 'dashboard' && user && <UserDashboard user={user} token={token} onLogout={handleLogout} onNavigate={setTab} />}
+          {tab === 'blog' && <Blog onNavigateToSEO={handleNavigateToSEO} onNavigateToPost={handleBlogPostNavigation} />}
+          {tab === 'blog-post' && <BlogPost postId={currentBlogPost} onBack={handleBackToBlog} onNavigateToSEO={handleNavigateToSEO} />}
           {tab === 'about' && <About onNavigateToSEO={handleNavigateToSEO} />}
           {tab === 'docs' && <Docs onNavigateToSEO={handleNavigateToSEO} />}
           {tab === 'contact' && <Contact />}
