@@ -782,182 +782,218 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
       {(activeTab === 'projects' || activeTab === 'reports') && user.tier === 'pro' && (
         <>
           {activeTab === 'projects' && (
-            <div className="projects-section-dark">
-              {/* Minimal Metrics */}
-              <div className="metrics-row-dark">
-                <div className="metric-card-dark">
-                  <div className="metric-value-dark">{projects.length}</div>
-                  <div className="metric-label-dark">Projects</div>
+            <div className="purple-projects-page">
+              {/* Main Content Card */}
+              <div className="projects-main-card">
+                <div className="projects-card-header">
+                  <span className="projects-badge">🚀 Project Management</span>
+                  <h1 className="projects-title">
+                    Manage Your Website's
+                    <span className="gradient-text"> SEO Projects</span>
+                  </h1>
+                  <p className="projects-subtitle">
+                    Get instant insights into your website's SEO health with our comprehensive project management tool.
+                  </p>
+                  
+                  <button 
+                    className="new-project-btn"
+                    onClick={() => setShowNewProject(true)}
+                  >
+                    Create New Project
+                    <span className="btn-arrow">→</span>
+                  </button>
                 </div>
-                <div className="metric-card-dark">
-                  <div className="metric-value-dark">
-                    {projects.length > 0 ? (() => {
-                      const lastScan = Math.max(...projects.map(p => p.last_scan ? new Date(p.last_scan).getTime() : 0));
-                      if (lastScan === 0) return '—';
-                      const daysSince = Math.floor((Date.now() - lastScan) / (1000 * 60 * 60 * 24));
-                      return daysSince;
-                    })() : '—'}
+
+                <div className="projects-stats">
+                  <div className="stat-item">
+                    <div className="stat-value">{projects.length}</div>
+                    <div className="stat-label">TOTAL PROJECTS</div>
                   </div>
-                  <div className="metric-label-dark">Days Since Last Analysis</div>
-                </div>
-                <div className="metric-card-dark">
-                  <div className="metric-value-dark">
-                    {projects.length > 0 ? (() => {
-                      const scores = projects.map(p => analysisResults[p.id]?.seo?.score || p.last_seo_score).filter(s => s);
-                      return scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : '—';
-                    })() : '—'}
+                  
+                  <div className="stat-item">
+                    <div className="stat-value">
+                      {projects.length > 0 ? (() => {
+                        const scores = projects.map(p => analysisResults[p.id]?.seo?.score || p.last_seo_score).filter(s => s);
+                        return scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : '—';
+                      })() : '—'}
+                    </div>
+                    <div className="stat-label">AVG SCORE</div>
                   </div>
-                  <div className="metric-label-dark">Average SEO Score</div>
+                  
+                  <div className="stat-item">
+                    <div className="stat-value">
+                      {projects.length > 0 ? (() => {
+                        const lastScan = Math.max(...projects.map(p => p.last_scan ? new Date(p.last_scan).getTime() : 0));
+                        if (lastScan === 0) return '—';
+                        const daysSince = Math.floor((Date.now() - lastScan) / (1000 * 60 * 60 * 24));
+                        return `${daysSince}d`;
+                      })() : '—'}
+                    </div>
+                    <div className="stat-label">LAST CHECK</div>
+                  </div>
                 </div>
               </div>
 
-              {/* Add Project Button */}
-              <div className="add-project-section-dark">
-                <button 
-                  className="add-project-card-dark"
-                  onClick={() => setShowNewProject(true)}
-                >
-                  <div className="add-project-icon-dark">+</div>
-                  <div className="add-project-text-dark">Add Project</div>
-                </button>
-              </div>
-
-              {/* Projects Grid */}
-              <div className="projects-container-dark">
-                {projects.length === 0 ? (
-                  <div className="empty-state-dark">
-                    <div className="empty-icon-dark">📋</div>
-                    <h3 className="empty-title-dark">No projects yet</h3>
-                    <p className="empty-subtitle-dark">Create your first project to start tracking SEO performance</p>
+              {/* Projects List Section */}
+              {projects.length === 0 ? (
+                <div className="empty-projects-state">
+                  <div className="empty-icon-wrapper">
+                    <span className="empty-icon">📁</span>
                   </div>
-                ) : (
-                  <div className="projects-grid-dark">
+                  <h3>No Projects Yet</h3>
+                  <p>Start tracking your website's SEO performance by creating your first project.</p>
+                  <button 
+                    className="start-project-btn"
+                    onClick={() => setShowNewProject(true)}
+                  >
+                    Get Started →
+                  </button>
+                </div>
+              ) : (
+                <div className="projects-list-container">
+                  <div className="projects-list-header">
+                    <h2>Your Projects</h2>
+                    <span className="projects-count">{projects.length} total</span>
+                  </div>
+
+                  <div className="projects-grid">
                     {projects.map(project => {
                       const isRunning = runningAnalysis === project.id;
                       const results = analysisResults[project.id];
-                      const score = results?.seo?.score || project.last_seo_score;
-                      
-                      const getLastScanText = (lastScan) => {
-                        if (!lastScan) return 'Never scanned';
-                        const date = new Date(lastScan);
-                        const now = new Date();
-                        const diffMs = now - date;
-                        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                        
-                        if (diffDays === 0) return 'Today';
-                        if (diffDays === 1) return 'Yesterday';
-                        if (diffDays < 7) return `${diffDays} days ago`;
-                        if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-                        return `${Math.floor(diffDays / 30)} months ago`;
-                      };
+                      const seoScore = results?.seo?.score || project.last_seo_score || 0;
+                      const speedTime = results?.speed ? getSpeedDisplayTime(results.speed) : 0;
+                      const issuesCount = (results?.seo?.freeIssues?.length || 0) + (results?.seo?.proIssues?.length || 0);
                       
                       return (
-                        <div key={project.id} className="project-card-dark">
-                          <div className="project-header-dark">
-                            <h3 className="project-name-dark">{project.name}</h3>
-                            <div className="project-actions-dark">
+                        <div key={project.id} className="purple-project-card">
+                          <div className="project-card-body">
+                            <div className="project-header">
+                              <div className="project-icon">🌐</div>
+                              <div className="project-info">
+                                <h3>{project.name}</h3>
+                                <p className="project-url">{project.url}</p>
+                              </div>
                               <button 
-                                className="delete-btn-dark"
+                                className="project-delete"
                                 onClick={() => deleteProject(project)}
                                 title="Delete project"
                               >
                                 ×
                               </button>
                             </div>
-                          </div>
-                          
-                          <div className="project-url-dark">{project.url}</div>
-                          
-                          <div className="project-meta-dark">
-                            <span className="meta-item-dark">
-                              Last scan: {getLastScanText(project.last_scan)}
-                            </span>
-                          </div>
-                          
-                          {score && (
-                            <div className="project-score-dark">
-                              <div className={`score-badge-dark ${score >= 80 ? 'excellent' : score >= 60 ? 'good' : score >= 40 ? 'fair' : 'poor'}`}>
-                                <span className="score-number-dark">{score}</span>
-                                <span className="score-suffix-dark">/100</span>
+
+                            <div className="project-stats-row">
+                              <div className="project-stat">
+                                <div className={`stat-circle ${seoScore >= 80 ? 'good' : seoScore >= 60 ? 'ok' : 'bad'}`}>
+                                  {seoScore}
+                                </div>
+                                <span className="stat-name">SEO Score</span>
+                              </div>
+
+                              <div className="project-stat">
+                                <div className={`stat-circle ${speedTime <= 500 ? 'good' : speedTime <= 1000 ? 'ok' : 'bad'}`}>
+                                  {speedTime}ms
+                                </div>
+                                <span className="stat-name">Load Time</span>
+                              </div>
+
+                              <div className="project-stat">
+                                <div className={`stat-circle ${issuesCount === 0 ? 'good' : issuesCount <= 5 ? 'ok' : 'bad'}`}>
+                                  {issuesCount}
+                                </div>
+                                <span className="stat-name">Issues</span>
                               </div>
                             </div>
-                          )}
-                          
-                          <div className="project-actions-footer-dark">
-                            <button 
-                              onClick={() => runProjectAnalysis(project)} 
-                              disabled={isRunning}
-                              className={`analyze-btn-dark ${isRunning ? 'loading' : ''}`}
-                            >
-                              {isRunning ? 'Analyzing...' : 'Run SEO Analysis'}
-                            </button>
-                            
-                            {results && (
+
+                            <div className="project-footer">
                               <button 
-                                className="view-report-btn-dark"
-                                onClick={() => setActiveTab('report-detail-' + project.id)}
+                                className={`analyze-project-btn ${isRunning ? 'loading' : ''}`}
+                                onClick={() => runProjectAnalysis(project)}
+                                disabled={isRunning}
                               >
-                                View Report
+                                {isRunning ? (
+                                  <>
+                                    <span className="btn-spinner"></span>
+                                    Analyzing...
+                                  </>
+                                ) : (
+                                  'Analyze Now →'
+                                )}
                               </button>
-                            )}
+                              
+                              {results && (
+                                <button 
+                                  className="view-report-btn"
+                                  onClick={() => setActiveTab('report-detail-' + project.id)}
+                                >
+                                  View Report
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* New Project Modal */}
               {showNewProject && (
-                <div className="modal-overlay-dark">
-                  <div className="modal-dark">
-                    <div className="modal-header-dark">
-                      <h3>Create New Project</h3>
+                <div className="project-modal-overlay">
+                  <div className="project-modal">
+                    <div className="modal-header">
+                      <div className="modal-title">
+                        <span className="modal-icon">🚀</span>
+                        <h3>Create New Project</h3>
+                      </div>
                       <button 
-                        className="modal-close-dark"
+                        className="modal-close-btn"
                         onClick={() => setShowNewProject(false)}
                       >
                         ×
                       </button>
                     </div>
                     
-                    <div className="modal-body-dark">
-                      <div className="form-group-dark">
-                        <label className="form-label-dark">Project Name</label>
-                        <input
-                          type="text"
-                          placeholder="e.g., My Website"
-                          value={newProject.name}
-                          onChange={(e) => setNewProject({...newProject, name: e.target.value})}
-                          className="form-input-dark"
-                        />
-                      </div>
-                      
-                      <div className="form-group-dark">
-                        <label className="form-label-dark">Website URL</label>
-                        <input
-                          type="url"
-                          placeholder="https://example.com"
-                          value={newProject.url}
-                          onChange={(e) => setNewProject({...newProject, url: e.target.value})}
-                          className="form-input-dark"
-                        />
+                    <div className="modal-content">
+                      <div className="form-section">
+                        <div className="form-group">
+                          <label className="form-label">Project Name</label>
+                          <input
+                            type="text"
+                            placeholder="e.g., My Website"
+                            value={newProject.name}
+                            onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+                            className="form-input"
+                          />
+                        </div>
+                        
+                        <div className="form-group">
+                          <label className="form-label">Website URL</label>
+                          <input
+                            type="url"
+                            placeholder="https://example.com"
+                            value={newProject.url}
+                            onChange={(e) => setNewProject({...newProject, url: e.target.value})}
+                            className="form-input"
+                          />
+                        </div>
                       </div>
                     </div>
                     
-                    <div className="modal-footer-dark">
+                    <div className="modal-actions">
                       <button 
-                        className="btn-cancel-dark"
+                        className="cancel-btn"
                         onClick={() => setShowNewProject(false)}
                       >
                         Cancel
                       </button>
                       <button 
-                        className="btn-create-dark"
+                        className="create-btn"
                         onClick={createProject}
                         disabled={!newProject.name.trim() || !newProject.url.trim()}
                       >
+                        <span className="btn-icon">✨</span>
                         Create Project
                       </button>
                     </div>
