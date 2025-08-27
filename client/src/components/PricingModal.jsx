@@ -32,17 +32,13 @@ export default function PricingModal({ onClose, user }) {
         throw new Error(data.error || 'Failed to create checkout session');
       }
 
-      // For demo purposes, show a message instead of opening mock URL
-      if (data.url.includes('mock')) {
-        setError('Payment system is in demo mode. In production, this would open Stripe checkout.');
-        setTimeout(() => {
-          setError('');
-          onClose();
-        }, 3000);
-      } else {
-        // Open real Stripe Checkout in new browser tab
-        window.open(data.url, '_blank');
-      }
+      // Open Stripe Checkout in new browser tab
+      window.open(data.url, '_blank');
+      
+      // Close modal after opening Stripe
+      setTimeout(() => {
+        onClose();
+      }, 1000);
     } catch (err) {
       console.error('Payment error:', err);
       setError(err.message || 'Failed to process payment. Please try again.');

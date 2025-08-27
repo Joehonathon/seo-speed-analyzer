@@ -1,4 +1,7 @@
-// Simple mock portal endpoint
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,13 +16,25 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(500).json({ error: 'Stripe not configured' });
+  }
+
   try {
-    // Mock response for now - in production this would create a real Stripe portal session
-    const mockPortalUrl = 'https://billing.stripe.com/session/mock_portal_session';
+    const { customerId } = req.body;
+    
+    if (!customerId) {
+      return res.status(400).json({ error: 'Customer ID required' });
+    }
+
+    // Create Stripe billing portal session
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${req.headers.origin || process.env.FRONTEND_URL}/`,
+    });
     
     res.status(200).json({
-      url: mockPortalUrl,
-      message: 'Mock portal session created'
+      url: session.url
     });
   } catch (error) {
     console.error('Portal error:', error);
