@@ -1,9 +1,11 @@
 {
   "functions": {
     "api/**/*.js": {
-      "runtime": "@vercel/node@20.x"
+      "runtime": "@vercel/node@18.x"
     }
   },
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/api/(.*)",

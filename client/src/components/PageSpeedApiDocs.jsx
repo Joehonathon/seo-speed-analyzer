@@ -329,7 +329,7 @@ export default function PageSpeedApiDocs() {
                         </div>
                         <div className="detail-item">
                           <span className="detail-label">Poor:</span>
-                          <span className="detail-value poor">> 4.0 seconds</span>
+                          <span className="detail-value poor">&gt; 4.0 seconds</span>
                         </div>
                       </div>
                     </div>
@@ -357,7 +357,7 @@ export default function PageSpeedApiDocs() {
                         </div>
                         <div className="detail-item">
                           <span className="detail-label">Poor:</span>
-                          <span className="detail-value poor">> 300ms</span>
+                          <span className="detail-value poor">&gt; 300ms</span>
                         </div>
                       </div>
                     </div>
@@ -385,7 +385,7 @@ export default function PageSpeedApiDocs() {
                         </div>
                         <div className="detail-item">
                           <span className="detail-label">Poor:</span>
-                          <span className="detail-value poor">> 0.25</span>
+                          <span className="detail-value poor">&gt; 0.25</span>
                         </div>
                       </div>
                     </div>
