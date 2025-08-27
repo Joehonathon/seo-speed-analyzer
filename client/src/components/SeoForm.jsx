@@ -49,6 +49,25 @@ export default function SeoForm({ user, token, requireAuth }) {
       return
     }
     
+    // Check usage limit for free users before analysis
+    if (user && user.tier === 'free') {
+      try {
+        const usageCheck = await fetch(`${API_BASE}/api/usage`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (usageCheck.ok) {
+          const usageData = await usageCheck.json();
+          if (usageData.scansRemaining === 0) {
+            setError('Daily limit of 3 scans reached. Upgrade to Pro for unlimited access.');
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Usage check failed:', err);
+        // Continue with analysis even if usage check fails
+      }
+    }
+    
     // Normalize URL - add https:// if no protocol is present
     const normalizedUrl = url.startsWith('http') ? url : `https://${url}`
     
@@ -74,6 +93,18 @@ export default function SeoForm({ user, token, requireAuth }) {
       console.log('API Response data:', json)
       console.log('Score in response:', json.score)
       setData({ ...json, analyzedUrl: normalizedUrl })
+      
+      // Increment usage for free users after successful analysis
+      if (user && user.tier === 'free') {
+        try {
+          await fetch(`${API_BASE}/api/usage`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+        } catch (err) {
+          console.warn('Usage increment failed:', err);
+        }
+      }
     } catch (err) {
       setError(err.message || 'Request failed')
     } finally {

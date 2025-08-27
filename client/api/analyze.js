@@ -34,25 +34,12 @@ export default async function handler(req, res) {
     // For now, assume all users are free tier (in production you'd check user.tier from database)
     const isProUser = false; // This would come from your user database
     
-    // Check and increment usage for free users
+    // Simple usage tracking without internal API calls
+    // In production this would check and update database directly
     if (!isProUser) {
-      const usageResponse = await fetch(`${req.headers.origin || 'http://localhost:3000'}/api/usage`, {
-        method: 'POST',
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (usageResponse.status === 429) {
-        const usageData = await usageResponse.json();
-        return res.status(429).json(usageData);
-      }
-      
-      if (!usageResponse.ok) {
-        console.error('Usage tracking failed:', await usageResponse.text());
-        // Continue with analysis even if usage tracking fails
-      }
+      // For now, we'll handle usage limits in the frontend
+      // The usage API can be called separately from the frontend
+      console.log(`Analysis requested by user: ${userId}`);
     }
     // Normalize URL
     const normalizedUrl = url.startsWith('http') ? url : `https://${url}`;
@@ -203,7 +190,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Unable to reach the website. Please check the URL.' });
     }
     
-    res.status(500).json({ error: 'Failed to analyze website' });
+    if (error.message.includes('fetch')) {
+      return res.status(400).json({ error: 'Failed to fetch website. Please check the URL and try again.' });
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to analyze website', 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
   }
 }
 

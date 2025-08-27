@@ -571,47 +571,6 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
 
       {activeTab === 'overview' && (
         <>
-          <div className="usage-section">
-            <h4>Daily Usage</h4>
-            {user.tier === 'free' ? (
-              <div className="usage-card">
-                <div className="usage-info">
-                  <span className="usage-count">
-                    {profile?.usage?.today || 0} / {profile?.usage?.limit || 3}
-                  </span>
-                  <span className="usage-label">Reports used today</span>
-                </div>
-                <div className="usage-bar">
-                  <div 
-                    className="usage-progress" 
-                    style={{ width: `${usagePercentage}%` }}
-                  ></div>
-                </div>
-                {usagePercentage >= 100 && (
-                  <div className="usage-warning">
-                    Daily limit reached! Upgrade to Pro for unlimited access.
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="usage-card pro">
-                <div className="usage-info">
-                  <span className="usage-count">∞</span>
-                  <span className="usage-label">Unlimited reports</span>
-                </div>
-                <div className="pro-stats">
-                  <div className="stat">
-                    <span className="stat-number">{projects.length}</span>
-                    <span className="stat-label">Active Projects</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-number">{profile?.usage?.today || 0}</span>
-                    <span className="stat-label">Reports Today</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Google PageSpeed API Key Management Card */}
           <div className="card pagespeed-api-card">
