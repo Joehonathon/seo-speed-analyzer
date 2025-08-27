@@ -77,3 +77,4 @@ desktop.ini
 # Build and deploy
 *.zip
 *.tar.gz
+.vercel
