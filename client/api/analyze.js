@@ -1,5 +1,4 @@
-import axios from 'axios';
-import * as cheerio from 'cheerio';
+// Use fetch API instead of axios for better Vercel compatibility
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -25,32 +24,52 @@ export default async function handler(req, res) {
     // Normalize URL
     const normalizedUrl = url.startsWith('http') ? url : `https://${url}`;
     
-    // Fetch the webpage
+    // Fetch the webpage using native fetch
     const startTime = Date.now();
-    const response = await axios.get(normalizedUrl, {
-      timeout: 10000,
+    const response = await fetch(normalizedUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; SEO-Analyzer/1.0)'
       }
     });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
     const ttfb = Date.now() - startTime;
+    const html = await response.text();
     
-    const html = response.data;
-    const $ = cheerio.load(html);
+    // Simple HTML parsing without cheerio
+    const parseHtml = (html) => {
+      const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || '';
+      const metaDescription = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() || '';
+      
+      const h1Matches = html.match(/<h1[^>]*>([^<]+)<\/h1>/gi) || [];
+      const h1Tags = h1Matches.map(match => match.replace(/<[^>]+>/g, '').trim());
+      
+      const h2Matches = html.match(/<h2[^>]*>([^<]+)<\/h2>/gi) || [];
+      const h2Tags = h2Matches.map(match => match.replace(/<[^>]+>/g, '').trim());
+      
+      const imgMatches = html.match(/<img[^>]*>/gi) || [];
+      const images = imgMatches.length;
+      const imagesWithAlt = imgMatches.filter(img => /alt=["'][^"']*["']/.test(img)).length;
+      
+      const hasCanonical = /<link[^>]*rel=["']canonical["']/i.test(html);
+      const hasRobotsMeta = /<meta[^>]*name=["']robots["']/i.test(html);
+      const hasViewport = /<meta[^>]*name=["']viewport["']/i.test(html);
+      const hasStructuredData = /<script[^>]*type=["']application\/ld\+json["']/i.test(html);
+      
+      return {
+        title, metaDescription, h1Tags, h2Tags, images, imagesWithAlt,
+        hasCanonical, hasRobotsMeta, hasViewport, hasStructuredData
+      };
+    };
     
-    // Extract SEO data
-    const title = $('title').text() || '';
-    const metaDescription = $('meta[name="description"]').attr('content') || '';
-    const h1Tags = $('h1').map((i, el) => $(el).text()).get();
-    const h2Tags = $('h2').map((i, el) => $(el).text()).get();
-    const images = $('img').length;
-    const imagesWithAlt = $('img[alt]').length;
+    const parsed = parseHtml(html);
     
-    // Check for important SEO elements
-    const hasCanonical = $('link[rel="canonical"]').length > 0;
-    const hasRobotsMeta = $('meta[name="robots"]').length > 0;
-    const hasViewport = $('meta[name="viewport"]').length > 0;
-    const hasStructuredData = $('script[type="application/ld+json"]').length > 0;
+    // Use parsed data
+    const { title, metaDescription, h1Tags, h2Tags, images, imagesWithAlt,
+            hasCanonical, hasRobotsMeta, hasViewport, hasStructuredData } = parsed;
     
     // Calculate SEO score
     let score = 0;
@@ -143,12 +162,12 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('SEO Analysis error:', error);
     
-    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-      return res.status(400).json({ error: 'Unable to reach the website. Please check the URL.' });
+    if (error.message.includes('HTTP 404')) {
+      return res.status(400).json({ error: 'Page not found (404). Please check the URL.' });
     }
     
-    if (error.response?.status === 404) {
-      return res.status(400).json({ error: 'Page not found (404). Please check the URL.' });
+    if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+      return res.status(400).json({ error: 'Unable to reach the website. Please check the URL.' });
     }
     
     res.status(500).json({ error: 'Failed to analyze website' });
