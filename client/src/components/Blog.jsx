@@ -1,8 +1,18 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 
 export default function Blog({ onNavigateToSEO, onNavigateToPost }) {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768)
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const articles = [
     {
@@ -160,7 +170,7 @@ export default function Blog({ onNavigateToSEO, onNavigateToPost }) {
         {/* Hero Section */}
       <div style={{
         background: 'linear-gradient(135deg, #6366f1 0%, #7c3aed 30%, #8b5cf6 60%, #a855f7 100%)',
-        padding: '80px 20px 60px',
+        padding: isMobile ? '60px 16px 40px' : '80px 20px 60px',
         textAlign: 'center',
         position: 'relative',
         overflow: 'hidden'
@@ -177,7 +187,7 @@ export default function Blog({ onNavigateToSEO, onNavigateToPost }) {
         
         <div style={{ maxWidth: '800px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <h1 style={{
-            fontSize: '48px',
+            fontSize: isMobile ? '36px' : '48px',
             fontWeight: '900',
             margin: '0 0 20px',
             color: '#ffffff',
@@ -251,7 +261,11 @@ export default function Blog({ onNavigateToSEO, onNavigateToPost }) {
         </div>
       </div>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
+      <div style={{ 
+        maxWidth: isMobile ? '100%' : '1200px', 
+        margin: '0 auto', 
+        padding: isMobile ? '0 12px' : '0 20px' 
+      }}>
         
         {/* Featured Articles */}
         {selectedCategory === 'all' && !searchQuery && (
@@ -406,8 +420,8 @@ export default function Blog({ onNavigateToSEO, onNavigateToPost }) {
           {filteredArticles.length > 0 ? (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
-              gap: '30px'
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(380px, 1fr))',
+              gap: isMobile ? '20px' : '30px'
             }}>
               {(selectedCategory === 'all' && !searchQuery ? regularArticles : filteredArticles).map((article) => (
                 <article 
@@ -416,11 +430,13 @@ export default function Blog({ onNavigateToSEO, onNavigateToPost }) {
                   style={{
                     background: 'rgba(255,255,255,0.03)',
                     border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '32px',
-                    padding: '30px',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer',
-                  backdropFilter: 'blur(10px)'
+                    borderRadius: isMobile ? '16px' : '32px',
+                    padding: isMobile ? '20px' : '30px',
+                    transition: 'all 0.3s ease',
+                    cursor: 'pointer',
+                    backdropFilter: 'blur(10px)',
+                    maxWidth: '100%',
+                    boxSizing: 'border-box'
                 }}>
                   <div style={{
                     display: 'flex',

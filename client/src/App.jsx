@@ -19,15 +19,25 @@ export default function App() {
   const [token, setToken] = useState(null)
   const [showAuth, setShowAuth] = useState(false)
   const [currentBlogPost, setCurrentBlogPost] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     // Check for existing auth on app load
-    const savedToken = localStorage.getItem('auth_token')
-    const savedUser = localStorage.getItem('user')
-    
-    if (savedToken && savedUser) {
-      setToken(savedToken)
-      setUser(JSON.parse(savedUser))
+    try {
+      const savedToken = localStorage.getItem('auth_token')
+      const savedUser = localStorage.getItem('user')
+      
+      if (savedToken && savedUser) {
+        setToken(savedToken)
+        setUser(JSON.parse(savedUser))
+      }
+    } catch (error) {
+      console.error('Error loading auth from localStorage:', error)
+      // Clear potentially corrupted data
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('user')
+    } finally {
+      setLoading(false)
     }
   }, [])
   
@@ -70,6 +80,14 @@ export default function App() {
       return false
     }
     return true
+  }
+
+  if (loading) {
+    return (
+      <div className="app-container">
+        <div className="loading">Loading...</div>
+      </div>
+    )
   }
 
   return (

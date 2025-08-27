@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import ScoreBadge from './ScoreBadge.jsx'
 import ResultCard from './ResultCard.jsx'
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5050';
+import API_BASE from '../config/api.js';
 
 export default function SeoFormNew({ user, token, requireAuth }) {
   const [url, setUrl] = useState('')

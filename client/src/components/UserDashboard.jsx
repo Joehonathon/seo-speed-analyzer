@@ -4,8 +4,9 @@ import { createPortal } from 'react-dom';
 import ResultCard from './ResultCard.jsx';
 import ScoreBadge from './ScoreBadge.jsx';
 import PageSpeedGuide from './PageSpeedGuide.jsx';
+import PricingModal from './PricingModal.jsx';
 
-const API_BASE = 'http://localhost:5050/api';
+import API_BASE from '../config/api.js';
 
 // Helper function to get displayable speed time from either PageSpeed API or basic response
 const getSpeedDisplayTime = (speedData) => {
@@ -65,6 +66,7 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [apiKeySaving, setApiKeySaving] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showPricingModal, setShowPricingModal] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -458,6 +460,15 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
               </div>
             </div>
             <div className="welcome-right">
+              {user.tier === 'free' && (
+                <button 
+                  onClick={() => setShowPricingModal(true)} 
+                  className="upgrade-button-small"
+                >
+                  <span>🚀</span>
+                  <span>Upgrade</span>
+                </button>
+              )}
               <button onClick={handleLogout} className="logout-button">
                 <span className="logout-icon">⏻</span>
                 <span>Logout</span>
@@ -711,7 +722,7 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
           </div>
 
           {user.tier === 'free' && (
-            <div className="upgrade-section">
+            <div className="upgrade-section" style={{ marginTop: '2rem' }}>
               <div className="upgrade-card">
                 <h4>🚀 Upgrade to Pro</h4>
                 <div className="pro-features">
@@ -725,11 +736,14 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
                     <li>✅ Custom alerts & notifications</li>
                   </ul>
                 </div>
-                <button className="upgrade-button" disabled>
-                  Coming Soon - Pro Tier
+                <button 
+                  className="upgrade-button" 
+                  onClick={() => setShowPricingModal(true)}
+                >
+                  Upgrade to Pro - $4.99/month
                 </button>
                 <p className="upgrade-note">
-                  We're working hard to bring you Pro features. Stay tuned!
+                  Unlock unlimited SEO analysis, project management, and advanced features!
                 </p>
               </div>
             </div>
@@ -782,16 +796,50 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
       {(activeTab === 'projects' || activeTab === 'reports') && user.tier === 'pro' && (
         <>
           {activeTab === 'projects' && (
-            <div className="purple-projects-page">
+            <div 
+              className="purple-projects-page"
+              style={window.innerWidth <= 768 ? {
+                padding: '12px',
+                width: 'calc(100% - 24px)',
+                maxWidth: 'none',
+                overflow: 'hidden',
+                boxSizing: 'border-box'
+              } : {}}
+            >
               {/* Main Content Card */}
-              <div className="projects-main-card">
+              <div 
+                className="projects-main-card"
+                style={window.innerWidth <= 768 ? {
+                  padding: '20px',
+                  maxWidth: '100%',
+                  overflow: 'hidden',
+                  boxSizing: 'border-box'
+                } : {}}
+              >
                 <div className="projects-card-header">
                   <span className="projects-badge">🚀 Project Management</span>
-                  <h1 className="projects-title">
+                  <h1 
+                    className="projects-title"
+                    style={window.innerWidth <= 768 ? {
+                      fontSize: '28px',
+                      lineHeight: '1.3',
+                      wordWrap: 'break-word',
+                      maxWidth: '100%',
+                      overflow: 'hidden'
+                    } : {}}
+                  >
                     Manage Your Website's
                     <span className="gradient-text"> SEO Projects</span>
                   </h1>
-                  <p className="projects-subtitle">
+                  <p 
+                    className="projects-subtitle"
+                    style={window.innerWidth <= 768 ? {
+                      fontSize: '16px',
+                      wordWrap: 'break-word',
+                      maxWidth: '100%',
+                      overflow: 'hidden'
+                    } : {}}
+                  >
                     Get instant insights into your website's SEO health with our comprehensive project management tool.
                   </p>
                   
@@ -804,32 +852,114 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
                   </button>
                 </div>
 
-                <div className="projects-stats">
-                  <div className="stat-item">
-                    <div className="stat-value">{projects.length}</div>
-                    <div className="stat-label">TOTAL PROJECTS</div>
+                <div 
+                  className="projects-stats"
+                  style={window.innerWidth <= 768 ? {
+                    flexDirection: 'column',
+                    gap: '16px',
+                    marginTop: '24px',
+                    justifyContent: 'center',
+                    maxWidth: '100vw',
+                    overflow: 'hidden',
+                    boxSizing: 'border-box'
+                  } : {}}
+                >
+                  <div 
+                    className="stat-item"
+                    style={window.innerWidth <= 768 ? {
+                      padding: '16px',
+                      minWidth: '0',
+                      maxWidth: '100%',
+                      overflow: 'hidden',
+                      boxSizing: 'border-box'
+                    } : {}}
+                  >
+                    <div 
+                      className="stat-value"
+                      style={window.innerWidth <= 768 ? {
+                        fontSize: '28px',
+                        wordWrap: 'break-word'
+                      } : {}}
+                    >
+                      {projects.length}
+                    </div>
+                    <div 
+                      className="stat-label"
+                      style={window.innerWidth <= 768 ? {
+                        fontSize: '10px',
+                        wordWrap: 'break-word'
+                      } : {}}
+                    >
+                      TOTAL PROJECTS
+                    </div>
                   </div>
                   
-                  <div className="stat-item">
-                    <div className="stat-value">
+                  <div 
+                    className="stat-item"
+                    style={window.innerWidth <= 768 ? {
+                      padding: '16px',
+                      minWidth: '0',
+                      maxWidth: '100%',
+                      overflow: 'hidden',
+                      boxSizing: 'border-box'
+                    } : {}}
+                  >
+                    <div 
+                      className="stat-value"
+                      style={window.innerWidth <= 768 ? {
+                        fontSize: '28px',
+                        wordWrap: 'break-word'
+                      } : {}}
+                    >
                       {projects.length > 0 ? (() => {
                         const scores = projects.map(p => analysisResults[p.id]?.seo?.score || p.last_seo_score).filter(s => s);
                         return scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : '—';
                       })() : '—'}
                     </div>
-                    <div className="stat-label">AVG SCORE</div>
+                    <div 
+                      className="stat-label"
+                      style={window.innerWidth <= 768 ? {
+                        fontSize: '10px',
+                        wordWrap: 'break-word'
+                      } : {}}
+                    >
+                      AVG SCORE
+                    </div>
                   </div>
                   
-                  <div className="stat-item">
-                    <div className="stat-value">
+                  <div 
+                    className="stat-item"
+                    style={window.innerWidth <= 768 ? {
+                      padding: '16px',
+                      minWidth: '0',
+                      maxWidth: '100%',
+                      overflow: 'hidden',
+                      boxSizing: 'border-box'
+                    } : {}}
+                  >
+                    <div 
+                      className="stat-value"
+                      style={window.innerWidth <= 768 ? {
+                        fontSize: '28px',
+                        wordWrap: 'break-word'
+                      } : {}}
+                    >
                       {projects.length > 0 ? (() => {
                         const lastScan = Math.max(...projects.map(p => p.last_scan ? new Date(p.last_scan).getTime() : 0));
                         if (lastScan === 0) return '—';
-                        const daysSince = Math.floor((Date.now() - lastScan) / (1000 * 60 * 60 * 24));
+                        const daysSince = Math.max(0, Math.floor((Date.now() - lastScan) / (1000 * 60 * 60 * 24)));
                         return `${daysSince}d`;
                       })() : '—'}
                     </div>
-                    <div className="stat-label">LAST CHECK</div>
+                    <div 
+                      className="stat-label"
+                      style={window.innerWidth <= 768 ? {
+                        fontSize: '10px',
+                        wordWrap: 'break-word'
+                      } : {}}
+                    >
+                      LAST CHECK
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1068,17 +1198,73 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
                         });
                       };
                       
+                      const isMobile = window.innerWidth <= 768;
+                      
                       return (
-                        <div key={report.id} className={`report-card ${index === 0 ? 'latest' : ''}`}>
+                        <div 
+                          key={report.id} 
+                          className={`report-card ${index === 0 ? 'latest' : ''}`}
+                          style={isMobile ? {
+                            maxWidth: '100vw',
+                            width: '100%',
+                            overflow: 'hidden',
+                            boxSizing: 'border-box'
+                          } : {}}
+                        >
                           <div className="report-timeline-marker">
                             {index === 0 && <div className="latest-indicator">Latest</div>}
                           </div>
                           
-                          <div className="report-card-content">
-                            <div className="report-card-header">
-                              <div className="project-info-inline">
-                                <h6 className="report-project-name">{report.project_name}</h6>
-                                <span className="report-project-url">{report.project_url}</span>
+                          <div 
+                            className="report-card-content"
+                            style={isMobile ? {
+                              maxWidth: '100%',
+                              overflow: 'hidden',
+                              boxSizing: 'border-box'
+                            } : {}}
+                          >
+                            <div 
+                              className="report-card-header"
+                              style={isMobile ? {
+                                flexDirection: 'column',
+                                alignItems: 'flex-start',
+                                gap: '12px',
+                                maxWidth: '100%',
+                                overflow: 'hidden'
+                              } : {}}
+                            >
+                              <div 
+                                className="project-info-inline"
+                                style={isMobile ? {
+                                  width: '100%',
+                                  maxWidth: '100%',
+                                  overflow: 'hidden'
+                                } : {}}
+                              >
+                                <h6 
+                                  className="report-project-name"
+                                  style={isMobile ? {
+                                    fontSize: '16px',
+                                    wordWrap: 'break-word',
+                                    wordBreak: 'break-all',
+                                    maxWidth: '100%',
+                                    overflow: 'hidden'
+                                  } : {}}
+                                >
+                                  {report.project_name}
+                                </h6>
+                                <span 
+                                  className="report-project-url"
+                                  style={isMobile ? {
+                                    fontSize: '12px',
+                                    wordWrap: 'break-word',
+                                    wordBreak: 'break-all',
+                                    maxWidth: '100%',
+                                    overflow: 'hidden'
+                                  } : {}}
+                                >
+                                  {report.project_url}
+                                </span>
                               </div>
                               <div className="report-timestamp">
                                 <span className="relative-time">{getRelativeTime(reportDate)}</span>
@@ -1097,17 +1283,50 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
                                 className="view-report-btn modern"
                                 onClick={() => setActiveTab('saved-report-detail-' + report.id)}
                                 title="View detailed report"
+                                style={isMobile ? {
+                                  width: '100%',
+                                  padding: '10px 16px',
+                                  fontSize: '14px',
+                                  marginTop: '8px'
+                                } : {}}
                               >
                                 <span className="btn-icon">👁</span>
                                 View
                               </button>
                             </div>
                             
-                            <div className="report-metrics">
-                              <div className="metric-card seo">
+                            <div 
+                              className="report-metrics"
+                              style={isMobile ? {
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(3, 1fr)',
+                                gap: '8px',
+                                maxWidth: '100%',
+                                overflow: 'hidden',
+                                boxSizing: 'border-box'
+                              } : {}}
+                            >
+                              <div 
+                                className="metric-card seo"
+                                style={isMobile ? {
+                                  minWidth: '0',
+                                  maxWidth: '100%',
+                                  overflow: 'hidden',
+                                  boxSizing: 'border-box',
+                                  padding: '12px 6px'
+                                } : {}}
+                              >
                                 <div className="metric-icon">🔍</div>
                                 <div className="metric-info">
-                                  <span className="metric-label">SEO Score</span>
+                                  <span 
+                                    className="metric-label"
+                                    style={isMobile ? {
+                                      fontSize: '10px',
+                                      wordWrap: 'break-word'
+                                    } : {}}
+                                  >
+                                    SEO Score
+                                  </span>
                                   {!report.report_data.seo ? (
                                     <span className="metric-value error">Error</span>
                                   ) : (
@@ -1121,10 +1340,27 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
                                 </div>
                               </div>
                               
-                              <div className="metric-card speed">
+                              <div 
+                                className="metric-card speed"
+                                style={isMobile ? {
+                                  minWidth: '0',
+                                  maxWidth: '100%',
+                                  overflow: 'hidden',
+                                  boxSizing: 'border-box',
+                                  padding: '12px 6px'
+                                } : {}}
+                              >
                                 <div className="metric-icon">⚡</div>
                                 <div className="metric-info">
-                                  <span className="metric-label">Load Time</span>
+                                  <span 
+                                    className="metric-label"
+                                    style={isMobile ? {
+                                      fontSize: '10px',
+                                      wordWrap: 'break-word'
+                                    } : {}}
+                                  >
+                                    Load Time
+                                  </span>
                                   {!report.report_data.speed ? (
                                     <span className="metric-value error">Error</span>
                                   ) : (
@@ -1135,10 +1371,27 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
                                 </div>
                               </div>
                               
-                              <div className="metric-card issues">
+                              <div 
+                                className="metric-card issues"
+                                style={isMobile ? {
+                                  minWidth: '0',
+                                  maxWidth: '100%',
+                                  overflow: 'hidden',
+                                  boxSizing: 'border-box',
+                                  padding: '12px 6px'
+                                } : {}}
+                              >
                                 <div className="metric-icon">⚠️</div>
                                 <div className="metric-info">
-                                  <span className="metric-label">Issues</span>
+                                  <span 
+                                    className="metric-label"
+                                    style={isMobile ? {
+                                      fontSize: '10px',
+                                      wordWrap: 'break-word'
+                                    } : {}}
+                                  >
+                                    Issues
+                                  </span>
                                   {!report.report_data.seo ? (
                                     <span className="metric-value error">Error</span>
                                   ) : (
@@ -2017,6 +2270,14 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
       {/* PageSpeed Guide Modal */}
       {showGuide && (
         <PageSpeedGuide onClose={() => setShowGuide(false)} />
+      )}
+
+      {/* Pricing Modal */}
+      {showPricingModal && (
+        <PricingModal 
+          onClose={() => setShowPricingModal(false)} 
+          user={user} 
+        />
       )}
     </div>
   );

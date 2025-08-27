@@ -1,20 +1,23 @@
+const dotenv = require('dotenv');
+dotenv.config();
+
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-const dotenv = require('dotenv');
 const { analyzeUrl } = require('./seoAnalyzer.js');
 const { runPageSpeed } = require('./pagespeed.js');
 const { authenticateToken, checkRateLimit, checkRateLimitWithoutIncrement, checkProjectRateLimit, register, login, getProfile } = require('./auth');
 const db = require('./database');
-
-dotenv.config();
+const paymentRoutes = require('./payment');
 
 const app = express();
 const PORT = process.env.PORT || 5050;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || '*';
 
 app.use(cors({ origin: CLIENT_ORIGIN }));
+// Raw body parsing for Stripe webhooks (must come before express.json)
+app.use('/api/payment/webhook', express.raw({type: 'application/json'}));
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan('dev'));
 
@@ -35,6 +38,9 @@ app.get('/api/health', (_req, res) => {
 app.post('/api/auth/register', register);
 app.post('/api/auth/login', login);
 app.get('/api/auth/profile', authenticateToken, getProfile);
+
+// Payment routes
+app.use('/api/payment', paymentRoutes);
 
 // Free tier - basic analysis (limited to 3/day for free users)
 app.get('/api/analyze', authenticateToken, checkRateLimit, async (req, res) => {

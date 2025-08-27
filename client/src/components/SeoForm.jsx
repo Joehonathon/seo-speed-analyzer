@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import ScoreBadge from './ScoreBadge.jsx'
 import ResultCard from './ResultCard.jsx'
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5050';
+import API_BASE from '../config/api.js';
 
 export default function SeoForm({ user, token, requireAuth }) {
   const [url, setUrl] = useState('')
@@ -217,21 +217,22 @@ Analysis completed on ${reportDate}
       width: '100%',
       maxWidth: '1200px',
       margin: '0 auto',
-      padding: '60px 20px',
+      padding: window.innerWidth <= 768 ? '20px 12px' : window.innerWidth <= 480 ? '16px 8px' : '60px 20px',
       background: 'transparent'
     }}>
       {/* Header Section */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: window.innerWidth > 1024 ? '1fr auto' : '1fr',
-        gap: '60px',
-        alignItems: 'start',
-        padding: '48px',
+        gridTemplateColumns: window.innerWidth > 768 ? '1fr auto' : '1fr',
+        gap: window.innerWidth <= 768 ? '24px' : '60px',
+        alignItems: window.innerWidth <= 768 ? 'center' : 'start',
+        textAlign: window.innerWidth <= 768 ? 'center' : 'left',
+        padding: window.innerWidth <= 768 ? (window.innerWidth <= 480 ? '20px 12px' : '24px 16px') : '48px',
         background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(99, 102, 241, 0.04) 100%)',
         border: '1px solid rgba(139, 92, 246, 0.15)',
-        borderRadius: '24px',
+        borderRadius: window.innerWidth <= 480 ? '12px' : '24px',
         backdropFilter: 'blur(20px)',
-        marginBottom: '48px',
+        marginBottom: window.innerWidth <= 768 ? '24px' : '48px',
         position: 'relative',
         overflow: 'hidden'
       }}>
@@ -277,12 +278,16 @@ Analysis completed on ${reportDate}
           </div>
           
           <h1 style={{
-            fontSize: '52px',
+            fontSize: window.innerWidth <= 480 ? '24px' : window.innerWidth <= 768 ? '28px' : '52px',
             fontWeight: '900',
-            lineHeight: '1.1',
+            lineHeight: window.innerWidth <= 768 ? '1.2' : '1.1',
             color: 'var(--text)',
-            margin: '0 0 20px',
-            letterSpacing: '-0.02em'
+            margin: window.innerWidth <= 768 ? '0 0 16px' : '0 0 20px',
+            letterSpacing: '-0.02em',
+            wordWrap: 'break-word',
+            overflowWrap: 'break-word',
+            hyphens: 'auto',
+            maxWidth: '100%'
           }}>
             Analyze Your Website's
             <div style={{
@@ -291,19 +296,26 @@ Analysis completed on ${reportDate}
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
-              backgroundSize: '200% 200%'
+              backgroundSize: '200% 200%',
+              wordWrap: 'break-word',
+              overflowWrap: 'break-word',
+              hyphens: 'auto',
+              maxWidth: '100%'
             }}>
               SEO Performance
             </div>
           </h1>
           
           <p style={{
-            fontSize: '18px',
-            lineHeight: '1.6',
+            fontSize: window.innerWidth <= 480 ? '14px' : window.innerWidth <= 768 ? '15px' : '18px',
+            lineHeight: window.innerWidth <= 768 ? '1.5' : '1.6',
             color: 'var(--text-muted)',
             margin: '0 0 auto',
-            maxWidth: '500px',
-            marginBottom: '40px'
+            maxWidth: window.innerWidth <= 768 ? '100%' : '500px',
+            marginBottom: window.innerWidth <= 768 ? '24px' : '40px',
+            wordWrap: 'break-word',
+            overflowWrap: 'break-word',
+            textAlign: window.innerWidth <= 768 ? 'center' : 'left'
           }}>
             Get instant insights into your website's SEO health with our comprehensive analysis tool.
           </p>
@@ -337,7 +349,7 @@ Analysis completed on ${reportDate}
                   position: 'relative',
                   background: 'rgba(255, 255, 255, 0.03)',
                   border: `2px solid ${!urlValid && url ? '#ef4444' : 'rgba(139, 92, 246, 0.15)'}`,
-                  borderRadius: '20px',
+                  borderRadius: window.innerWidth <= 480 ? '12px' : window.innerWidth <= 768 ? '16px' : '20px',
                   padding: 0,
                   display: 'flex',
                   alignItems: 'center',
@@ -346,7 +358,7 @@ Analysis completed on ${reportDate}
                   minWidth: 0
                 }}>
                   <div style={{
-                    padding: '20px',
+                    padding: window.innerWidth <= 480 ? '12px' : window.innerWidth <= 768 ? '16px' : '20px',
                     color: 'var(--text-muted)',
                     display: 'flex',
                     alignItems: 'center',
@@ -367,8 +379,8 @@ Analysis completed on ${reportDate}
                       border: 'none',
                       outline: 'none',
                       background: 'transparent',
-                      padding: '20px 16px',
-                      fontSize: '16px',
+                      padding: window.innerWidth <= 480 ? '14px 10px' : window.innerWidth <= 768 ? '16px 12px' : '20px 16px',
+                      fontSize: '16px', // Keep 16px to prevent iOS zoom
                       color: !urlValid && url ? '#ef4444' : 'var(--text)',
                       fontWeight: '500',
                       width: 0,
@@ -439,8 +451,8 @@ Analysis completed on ${reportDate}
                   style={{
                     background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
                     border: 'none',
-                    borderRadius: '20px',
-                    padding: '20px 32px',
+                    borderRadius: window.innerWidth <= 480 ? '12px' : window.innerWidth <= 768 ? '16px' : '20px',
+                    padding: window.innerWidth <= 480 ? '14px 20px' : window.innerWidth <= 768 ? '16px 24px' : '20px 32px',
                     color: 'white',
                     fontSize: '16px',
                     fontWeight: '700',
@@ -452,7 +464,8 @@ Analysis completed on ${reportDate}
                     whiteSpace: 'nowrap',
                     position: 'relative',
                     overflow: 'hidden',
-                    minWidth: '160px',
+                    minWidth: window.innerWidth <= 768 ? 'auto' : '160px',
+                    minHeight: window.innerWidth <= 480 ? '50px' : 'auto',
                     justifyContent: 'center',
                     opacity: loading || !url.trim() || !urlValid ? 0.6 : 1,
                     width: window.innerWidth <= 768 ? '100%' : 'auto'
