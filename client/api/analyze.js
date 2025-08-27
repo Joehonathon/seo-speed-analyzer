@@ -20,7 +20,40 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'URL parameter is required' });
   }
 
+  // Check authorization and usage limits for free users
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Please login to analyze websites' });
+  }
+
   try {
+    // Extract user info from mock token (in production you'd validate JWT and get user tier)
+    const token = authHeader.split(' ')[1];
+    const userId = token.replace('mock-jwt-token-', '');
+    
+    // For now, assume all users are free tier (in production you'd check user.tier from database)
+    const isProUser = false; // This would come from your user database
+    
+    // Check and increment usage for free users
+    if (!isProUser) {
+      const usageResponse = await fetch(`${req.headers.origin || 'http://localhost:3000'}/api/usage`, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (usageResponse.status === 429) {
+        const usageData = await usageResponse.json();
+        return res.status(429).json(usageData);
+      }
+      
+      if (!usageResponse.ok) {
+        console.error('Usage tracking failed:', await usageResponse.text());
+        // Continue with analysis even if usage tracking fails
+      }
+    }
     // Normalize URL
     const normalizedUrl = url.startsWith('http') ? url : `https://${url}`;
     

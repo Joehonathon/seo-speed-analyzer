@@ -67,12 +67,16 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
   const [apiKeySaving, setApiKeySaving] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
+  const [usageData, setUsageData] = useState(null);
+  const [loadingUsage, setLoadingUsage] = useState(false);
 
   useEffect(() => {
     fetchProfile();
     if (user.tier === 'pro') {
       fetchProjects();
     }
+    // Fetch usage data for all users (free users need to see their limits)
+    fetchUsageData();
   }, []);
 
   // Fetch saved reports when reports tab becomes active
@@ -125,6 +129,25 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
       console.error('Failed to fetch profile:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUsageData = async () => {
+    if (user.tier === 'pro') return; // Pro users don't have limits
+    
+    setLoadingUsage(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/usage`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUsageData(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch usage data:', err);
+    } finally {
+      setLoadingUsage(false);
     }
   };
 
@@ -477,6 +500,51 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
           </div>
         </div>
       </div>
+
+      {/* Usage Tracking for Free Users */}
+      {user.tier === 'free' && (
+        <div className="usage-section">
+          <div className="usage-card">
+            <div className="usage-header">
+              <h3>📊 Daily Usage</h3>
+              <span className="usage-date">{new Date().toLocaleDateString()}</span>
+            </div>
+            {loadingUsage ? (
+              <div className="usage-loading">Loading usage data...</div>
+            ) : usageData ? (
+              <>
+                <div className="usage-bar-container">
+                  <div className="usage-bar">
+                    <div 
+                      className="usage-fill" 
+                      style={{ width: `${(usageData.scansUsed / usageData.dailyLimit) * 100}%` }}
+                    />
+                  </div>
+                  <div className="usage-text">
+                    <span>{usageData.scansUsed} / {usageData.dailyLimit} scans used</span>
+                    <span className={`remaining ${usageData.scansRemaining === 0 ? 'limit-reached' : ''}`}>
+                      {usageData.scansRemaining} remaining
+                    </span>
+                  </div>
+                </div>
+                {usageData.scansRemaining === 0 && (
+                  <div className="usage-limit-message">
+                    <span>🚫 Daily limit reached!</span>
+                    <button 
+                      onClick={() => setShowPricingModal(true)} 
+                      className="upgrade-button-inline"
+                    >
+                      Upgrade for unlimited scans
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="usage-error">Unable to load usage data</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {user.tier === 'pro' && (
         <div className="dashboard-tabs">
