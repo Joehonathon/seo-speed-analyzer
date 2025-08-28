@@ -21,6 +21,12 @@ CREATE INDEX idx_projects_created_at ON projects(created_at);
 -- Create RLS (Row Level Security) policies for projects
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist to avoid conflicts
+DROP POLICY IF EXISTS "Users can view own projects" ON projects;
+DROP POLICY IF EXISTS "Users can insert own projects" ON projects;
+DROP POLICY IF EXISTS "Users can update own projects" ON projects;
+DROP POLICY IF EXISTS "Users can delete own projects" ON projects;
+
 -- Allow users to see only their own projects
 CREATE POLICY "Users can view own projects" ON projects
   FOR SELECT USING (true);

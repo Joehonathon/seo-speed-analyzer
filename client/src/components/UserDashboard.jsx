@@ -153,7 +153,7 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
 
   const fetchProjects = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/projects`, {
+      const response = await axios.get(`${API_BASE}/api/projects`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProjects(response.data);
@@ -180,7 +180,7 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
 
   const createProject = async () => {
     try {
-      const response = await axios.post(`${API_BASE}/projects`, newProject, {
+      const response = await axios.post(`${API_BASE}/api/projects`, newProject, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProjects([...projects, response.data]);
@@ -287,7 +287,7 @@ export default function UserDashboard({ user, token, onLogout, onNavigate }) {
     }
 
     try {
-      await axios.delete(`${API_BASE}/projects/${project.id}`, {
+      await axios.delete(`${API_BASE}/api/projects?id=${project.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
