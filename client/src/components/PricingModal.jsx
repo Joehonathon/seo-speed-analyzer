@@ -15,7 +15,7 @@ export default function PricingModal({ onClose, user }) {
     setError('');
 
     try {
-      const response = await fetch(`${API_BASE}/payment/create-checkout-session`, {
+      const response = await fetch(`${API_BASE}/api/payment/create-checkout-session`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -55,7 +55,7 @@ export default function PricingModal({ onClose, user }) {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/payment/create-portal-session`, {
+      const response = await fetch(`${API_BASE}/api/payment/create-portal-session`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
