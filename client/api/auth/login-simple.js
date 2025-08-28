@@ -1,4 +1,12 @@
-// Simple login endpoint with hardcoded users (for Vercel compatibility)
+// Supabase-based login endpoint
+import { createClient } from '@supabase/supabase-js';
+import bcrypt from 'bcryptjs';
+
+const supabaseUrl = 'https://mvggpdyxpmuuhydtavii.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12Z2dwZHl4cG11dWh5ZHRhdmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYzMTY3NzcsImV4cCI6MjA3MTg5Mjc3N30.pkmrkEDNMCDSEvVS9cIGhou2SNqGDDoSdkANtUtfmKw';
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,47 +28,39 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Email/username and password required' });
     }
 
-    // Hardcoded users for Vercel compatibility (since SQLite doesn't work in serverless)
-    const hardcodedUsers = {
-      'testpro@example.com': {
-        id: 10,
-        username: 'testpro',
-        email: 'testpro@example.com',
-        password: 'testpassword123',
-        tier: 'pro'
-      },
-      'testpro': {
-        id: 10,
-        username: 'testpro',
-        email: 'testpro@example.com',
-        password: 'testpassword123',
-        tier: 'pro'
-      },
-      'joehonathon@gmail.com': {
-        id: 1,
-        username: 'Joehonathon',
-        email: 'joehonathon@gmail.com',
-        password: 'password123',
-        tier: 'pro'
-      },
-      'test@example.com': {
-        id: 2,
-        username: 'testuser',
-        email: 'test@example.com',
-        password: 'password123',
-        tier: 'free'
-      }
-    };
+    // Query Supabase for user by email or username
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .or(`email.eq.${emailOrUsername},username.eq.${emailOrUsername}`)
+      .single();
 
-    // Find user by email or username
-    const user = hardcodedUsers[emailOrUsername];
-    
-    if (!user) {
+    if (error || !user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Simple password check (in production you'd use bcrypt)
-    if (password !== user.password) {
+    // For test users, allow simple password check; in production use bcrypt
+    let isValidPassword = false;
+    const testPasswords = {
+      'testpro@example.com': 'testpassword123',
+      'testpro': 'testpassword123', 
+      'joehonathon@gmail.com': 'password123',
+      'test@example.com': 'password123'
+    };
+
+    if (testPasswords[emailOrUsername] && password === testPasswords[emailOrUsername]) {
+      isValidPassword = true;
+    } else {
+      // Try bcrypt comparison for other users
+      try {
+        isValidPassword = await bcrypt.compare(password, user.password_hash);
+      } catch (bcryptError) {
+        console.error('Bcrypt error:', bcryptError);
+        isValidPassword = false;
+      }
+    }
+
+    if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
       id: user.id.toString(),
       username: user.username,
       email: user.email,
-      tier: user.tier
+      tier: user.tier || 'free'
     };
 
     const token = 'mock-jwt-token-' + user.id;

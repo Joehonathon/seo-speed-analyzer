@@ -1,7 +1,39 @@
 import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+const supabaseUrl = 'https://mvggpdyxpmuuhydtavii.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12Z2dwZHl4cG11dWh5ZHRhdmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYzMTY3NzcsImV4cCI6MjA3MVg5Mjc3N30.pkmrkEDNMCDSEvVS9cIGhou2SNqGDDoSdkANtUtfmKw';
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Helper function to update user tier in Supabase
+async function updateUserTier(userId, tier, subscriptionStatus = 'active', stripeCustomerId = null) {
+  const updateData = {
+    tier,
+    subscription_status: subscriptionStatus,
+    updated_at: new Date().toISOString()
+  };
+  
+  if (stripeCustomerId) {
+    updateData.stripe_customer_id = stripeCustomerId;
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .update(updateData)
+    .eq('id', userId);
+
+  if (error) {
+    console.error('Error updating user tier:', error);
+    throw error;
+  }
+
+  console.log(`Successfully updated user ${userId} to ${tier} tier`);
+  return data;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -29,17 +61,17 @@ export default async function handler(req, res) {
       
       if (userId) {
         try {
-          // In a real implementation, you would update your database here
-          // For now, we'll just log the successful payment
-          console.log(`User ${userId} successfully upgraded to Pro via session ${session.id}`);
+          // Update user tier to pro in Supabase
+          await updateUserTier(userId, 'pro', 'active', session.customer);
           
-          // TODO: Update user tier in your database
-          // Example:
-          // await updateUserTier(userId, 'pro', session.customer);
+          console.log(`User ${userId} successfully upgraded to Pro via session ${session.id}`);
           
         } catch (error) {
           console.error('Failed to upgrade user:', error);
+          return res.status(500).json({ error: 'Failed to upgrade user' });
         }
+      } else {
+        console.error('No user ID found in session metadata');
       }
       break;
       
@@ -47,9 +79,38 @@ export default async function handler(req, res) {
       const subscription = event.data.object;
       console.log('Subscription cancelled:', subscription.id);
       
-      // TODO: Downgrade user tier in your database
-      // Example:
-      // await updateUserTier(subscription.metadata?.userId, 'free');
+      // Get user ID from subscription metadata or find by customer ID
+      let subscriptionUserId = subscription.metadata?.userId;
+      
+      if (!subscriptionUserId) {
+        // Try to find user by Stripe customer ID
+        const { data: user } = await supabase
+          .from('users')
+          .select('id')
+          .eq('stripe_customer_id', subscription.customer)
+          .single();
+          
+        subscriptionUserId = user?.id;
+      }
+      
+      if (subscriptionUserId) {
+        try {
+          // Downgrade user tier to free
+          await updateUserTier(subscriptionUserId, 'free', 'cancelled');
+          
+          console.log(`User ${subscriptionUserId} downgraded to free tier`);
+          
+        } catch (error) {
+          console.error('Failed to downgrade user:', error);
+        }
+      }
+      break;
+      
+    case 'invoice.payment_failed':
+      const invoice = event.data.object;
+      console.log('Payment failed for invoice:', invoice.id);
+      
+      // Optionally handle failed payments (maybe send email, temporarily suspend)
       break;
       
     default:
