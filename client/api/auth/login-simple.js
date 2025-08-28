@@ -1,4 +1,12 @@
-// Simple login endpoint without complex dependencies
+// Simple login endpoint with database authentication
+import sqlite3 from 'sqlite3';
+import bcrypt from 'bcryptjs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,13 +28,41 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Email/username and password required' });
     }
 
-    // For now, just accept any login
-    // Later we'll add real authentication
-    const user = {
-      id: Math.random().toString(36).substr(2, 9),
-      username: emailOrUsername.includes('@') ? emailOrUsername.split('@')[0] : emailOrUsername,
-      email: emailOrUsername.includes('@') ? emailOrUsername : `${emailOrUsername}@example.com`,
-      tier: 'free'
+    // Connect to database
+    const dbPath = join(process.cwd(), 'server', 'database.sqlite');
+    const db = new sqlite3.Database(dbPath);
+
+    // Query user by email or username
+    const query = `SELECT * FROM users WHERE email = ? OR username = ?`;
+    
+    const user = await new Promise((resolve, reject) => {
+      db.get(query, [emailOrUsername, emailOrUsername], (err, row) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(row);
+        }
+      });
+    });
+
+    db.close();
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Create response user object
+    const responseUser = {
+      id: user.id.toString(),
+      username: user.username,
+      email: user.email,
+      tier: user.tier || 'free'
     };
 
     const token = 'mock-jwt-token-' + user.id;
@@ -34,7 +70,7 @@ export default async function handler(req, res) {
     res.status(200).json({
       message: 'Login successful',
       token,
-      user
+      user: responseUser
     });
   } catch (error) {
     console.error('Login error:', error);
