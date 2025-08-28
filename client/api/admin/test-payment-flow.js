@@ -27,10 +27,12 @@ export default async function handler(req, res) {
         return await checkUserStatus(req, res);
       case 'simulate-payment':
         return await simulatePayment(req, res);
+      case 'setup-projects-table':
+        return await setupProjectsTable(req, res);
       default:
         return res.status(400).json({ 
           error: 'Invalid action',
-          available_actions: ['create-test-user', 'check-status', 'simulate-payment']
+          available_actions: ['create-test-user', 'check-status', 'simulate-payment', 'setup-projects-table']
         });
     }
   } catch (error) {
@@ -200,4 +202,47 @@ async function simulatePayment(req, res) {
       stripe_customer_id: updatedUser.stripe_customer_id
     }
   });
+}
+
+async function setupProjectsTable(req, res) {
+  try {
+    // Check if projects table exists
+    const { data: tables, error: tablesError } = await supabase
+      .from('information_schema.tables')
+      .select('table_name')
+      .eq('table_name', 'projects')
+      .eq('table_schema', 'public');
+
+    if (tablesError) {
+      return res.status(500).json({ 
+        error: 'Cannot check table existence. Run SQL script manually in Supabase dashboard.',
+        sql_needed: 'setup-projects-table.sql'
+      });
+    }
+
+    if (tables && tables.length > 0) {
+      return res.status(200).json({
+        message: 'Projects table already exists',
+        status: 'ready',
+        note: 'Pro users can now create projects'
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Projects table needs to be created',
+      instructions: [
+        '1. Go to Supabase Dashboard → SQL Editor',
+        '2. Run the SQL script from setup-projects-table.sql',
+        '3. This will create the projects table for pro users'
+      ],
+      status: 'needs_setup'
+    });
+
+  } catch (error) {
+    console.error('Projects table setup error:', error);
+    return res.status(500).json({
+      error: 'Failed to setup projects table',
+      instructions: 'Run setup-projects-table.sql in Supabase dashboard manually'
+    });
+  }
 }
