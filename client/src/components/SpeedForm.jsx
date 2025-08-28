@@ -1,419 +1,315 @@
 import React, { useState, useEffect } from 'react'
-import ScoreBadge from './ScoreBadge.jsx'
-import ResultCard from './ResultCard.jsx'
-
-import API_BASE from '../config/api.js';
-
-// Speed-specific metric card component
-function SpeedMetricCard({ title, icon, items }) {
-  return (
-    <div className="enhanced-card">
-      <div className="enhanced-card-header">
-        <div className="card-icon">{icon}</div>
-        <div className="card-title-content">
-          <h4>{title}</h4>
-          <div className="card-stats">{items.length} metrics</div>
-        </div>
-      </div>
-      <div className="enhanced-card-body">
-        {items.map(([key, value, status], i) => (
-          <div key={i} className="enhanced-row">
-            <div className="row-content">
-              <div className="row-key">{key}</div>
-              <div className="row-value">{value}</div>
-            </div>
-            <div className={`status-indicator ${status}`}>
-              {status === 'good' && '✓'}
-              {status === 'warning' && '⚠'}
-              {status === 'bad' && '✗'}
-              {status === 'missing' && '?'}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// Opportunities recommendation card component
-function OpportunitiesCard({ title, icon, items }) {
-  return (
-    <div className="opportunities-card">
-      <div className="opportunities-header">
-        <div className="opportunities-icon-wrapper">
-          <div className="opportunities-icon">{icon}</div>
-          <div className="opportunities-pulse"></div>
-        </div>
-        <div className="opportunities-title-content">
-          <h4>{title}</h4>
-          <div className="opportunities-subtitle">Performance Recommendations</div>
-        </div>
-        <div className="opportunities-badge">
-          <span className="badge-text">Live Analysis</span>
-        </div>
-      </div>
-      <div className="opportunities-body">
-        {items.map(([key, value, status], i) => (
-          <div key={i} className={`opportunity-item ${status}`}>
-            <div className="opportunity-indicator">
-              {status === 'good' && <span className="indicator-icon good">✓</span>}
-              {status === 'warning' && <span className="indicator-icon warning">⚠</span>}
-              {status === 'bad' && <span className="indicator-icon bad">!</span>}
-              {status === 'missing' && <span className="indicator-icon missing">?</span>}
-            </div>
-            <div className="opportunity-content">
-              <div className="opportunity-category">{key}</div>
-              <div className="opportunity-recommendation">{value}</div>
-            </div>
-            <div className="opportunity-action">
-              {status === 'bad' && <span className="action-label">Fix</span>}
-              {status === 'warning' && <span className="action-label">Review</span>}
-              {status === 'good' && <span className="action-label">✓</span>}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// Helper functions
-function getMetricStatus(metric, value) {
-  if (!value || value === '—') return 'missing'
-  
-  // Parse numeric values from strings like "1.2s" or "0.05"
-  const numericValue = parseFloat(value)
-  
-  switch (metric) {
-    case 'FCP':
-      return numericValue <= 1.8 ? 'good' : numericValue <= 3.0 ? 'warning' : 'bad'
-    case 'LCP':
-      return numericValue <= 2.5 ? 'good' : numericValue <= 4.0 ? 'warning' : 'bad'
-    case 'CLS':
-      return numericValue <= 0.1 ? 'good' : numericValue <= 0.25 ? 'warning' : 'bad'
-    case 'TBT':
-      return numericValue <= 200 ? 'good' : numericValue <= 600 ? 'warning' : 'bad'
-    case 'SI':
-      return numericValue <= 3.4 ? 'good' : numericValue <= 5.8 ? 'warning' : 'bad'
-    case 'TTI':
-      return numericValue <= 3.8 ? 'good' : numericValue <= 7.3 ? 'warning' : 'bad'
-    default:
-      return 'good'
-  }
-}
-
-function getBasicTimeStatus(timeMs) {
-  if (!timeMs) return 'missing'
-  return timeMs <= 200 ? 'good' : timeMs <= 1000 ? 'warning' : 'bad'
-}
-
-function formatBytes(bytes) {
-  if (!bytes) return '—'
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i]
-}
-
-// Helper function to determine opportunity status
-function getOpportunityStatus(opportunityText) {
-  if (!opportunityText || opportunityText === 'Not analyzed') return 'missing'
-  
-  // Positive indicators (optimized)
-  const optimizedKeywords = [
-    'is optimized', 'are optimized', 'load efficiently', 
-    'compression enabled', 'using modern', 'configured properly',
-    'Optimized'
-  ]
-  
-  if (optimizedKeywords.some(keyword => opportunityText.includes(keyword))) {
-    return 'good'
-  }
-  
-  // If it contains savings or specific recommendations, it's a warning (needs improvement)
-  if (opportunityText.includes('Save ') || opportunityText.includes('Eliminate ') || 
-      opportunityText.includes('Reduce ') || opportunityText.includes('Enable ')) {
-    return 'bad'
-  }
-  
-  // Default to warning for opportunities that need attention
-  return 'warning'
-}
 
 export default function SpeedForm({ user, token, requireAuth }) {
   const [url, setUrl] = useState('https://example.com')
   const [strategy, setStrategy] = useState('mobile')
   const [loading, setLoading] = useState(false)
-  const [data, setData] = useState(null)
-  const [error, setError] = useState('')
-  const [userProfile, setUserProfile] = useState(null)
+  const [isMobile, setIsMobile] = useState(false)
 
-  // Load user profile to check for saved API key
   useEffect(() => {
-    if (token) {
-      fetchUserProfile();
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768)
     }
-  }, [token])
-
-  const fetchUserProfile = async () => {
-    try {
-      const headers = {
-        'Authorization': `Bearer ${token}`
-      };
-      const response = await fetch(`${API_BASE}/api/auth/profile`, { headers });
-      if (response.ok) {
-        const profileData = await response.json();
-        setUserProfile(profileData);
-      }
-    } catch (err) {
-      console.error('Failed to fetch user profile:', err);
-    }
-  }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const onSubmit = async (e) => {
     e.preventDefault()
+    setLoading(true)
     
-    // Check if user is authenticated
-    if (!requireAuth()) {
-      return; // requireAuth will show the login modal
-    }
-
-    setLoading(true); setError(''); setData(null)
-    try {
-      // Normalize URL - add https:// if no protocol
-      let normalizedUrl = url;
-      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-        normalizedUrl = `https://${normalizedUrl}`;
-      }
-      
-      const headers = {
-        'Authorization': `Bearer ${token}`
-      };
-      
-      // The backend will automatically use the user's saved API key from dashboard
-      const apiUrl = `${API_BASE}/api/pagespeed?url=${encodeURIComponent(normalizedUrl)}&strategy=${strategy}`;
-      
-      const res = await fetch(apiUrl, { headers })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed')
-      setData(json)
-    } catch (err) {
-      setError(err.message || 'Request failed')
-    } finally {
+    // Simulate API call
+    setTimeout(() => {
       setLoading(false)
-    }
+      alert('Speed test would run here!')
+    }, 1000)
   }
 
-  const perf = data?.performanceScore
+  const containerStyle = {
+    padding: isMobile ? '15px' : '40px 20px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 'calc(100vh - 200px)',
+    boxSizing: 'border-box'
+  }
+
+  const cardStyle = {
+    background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+    borderRadius: isMobile ? '16px' : '24px',
+    padding: isMobile ? '24px 16px' : '60px 30px',
+    maxWidth: isMobile ? 'none' : '1200px',
+    width: '100%',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+    border: '1px solid rgba(55, 65, 81, 0.3)',
+    boxSizing: 'border-box'
+  }
+
+  const gridStyle = {
+    display: isMobile ? 'block' : 'grid',
+    gridTemplateColumns: isMobile ? 'none' : '2fr 1fr',
+    gap: isMobile ? '30px' : '60px',
+    alignItems: isMobile ? 'stretch' : 'center'
+  }
+
+  const titleStyle = {
+    fontSize: isMobile ? '28px' : '54px',
+    fontWeight: 'bold',
+    color: '#f9fafb',
+    lineHeight: '1.1',
+    margin: '0 0 24px 0',
+    wordBreak: 'break-word',
+    hyphens: 'auto'
+  }
+
+  const formContainerStyle = {
+    backgroundColor: 'rgba(55, 65, 81, 0.4)',
+    borderRadius: '16px',
+    padding: '8px',
+    border: '1px solid rgba(75, 85, 99, 0.3)',
+    marginBottom: '24px'
+  }
+
+  const formInnerStyle = {
+    display: 'flex',
+    flexDirection: isMobile ? 'column' : 'row',
+    alignItems: isMobile ? 'stretch' : 'center',
+    gap: '8px'
+  }
+
+  const inputContainerStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    flex: '1',
+    minWidth: 0,
+    marginBottom: isMobile ? '8px' : '0'
+  }
+
+  const inputStyle = {
+    flex: '1',
+    background: 'none',
+    border: 'none',
+    outline: 'none',
+    color: '#f9fafb',
+    fontSize: '16px',
+    padding: '16px 8px 16px 0',
+    minWidth: 0
+  }
+
+  const controlsStyle = {
+    display: 'flex',
+    gap: '8px',
+    flexShrink: 0,
+    width: isMobile ? '100%' : 'auto'
+  }
+
+  const selectStyle = {
+    background: 'rgba(55, 65, 81, 0.6)',
+    border: '1px solid rgba(75, 85, 99, 0.4)',
+    borderRadius: '8px',
+    color: '#f9fafb',
+    padding: '12px 16px',
+    fontSize: '14px',
+    flex: isMobile ? '1' : 'none',
+    minWidth: isMobile ? '0' : 'auto'
+  }
+
+  const buttonStyle = {
+    background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
+    border: 'none',
+    borderRadius: '12px',
+    color: 'white',
+    fontSize: isMobile ? '14px' : '16px',
+    fontWeight: '600',
+    padding: isMobile ? '12px 16px' : '16px 32px',
+    cursor: loading ? 'not-allowed' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    opacity: loading ? 0.7 : 1,
+    whiteSpace: 'nowrap',
+    flex: isMobile ? '1' : 'none'
+  }
+
+  const statsContainerStyle = {
+    display: 'flex',
+    flexDirection: isMobile ? 'row' : 'column',
+    gap: isMobile ? '12px' : '20px',
+    marginBottom: isMobile ? '30px' : '0'
+  }
+
+  const statCardStyle = {
+    backgroundColor: 'rgba(55, 65, 81, 0.4)',
+    borderRadius: '16px',
+    padding: isMobile ? '12px 8px' : '24px',
+    textAlign: 'center',
+    border: '1px solid rgba(75, 85, 99, 0.3)',
+    backdropFilter: 'blur(10px)',
+    flex: isMobile ? '1' : 'none'
+  }
+
+  const examplesStyle = {
+    display: 'flex', 
+    flexWrap: 'wrap',
+    alignItems: 'center', 
+    gap: '12px'
+  }
 
   return (
-    <section className="card">
-      <h2>Site Speed</h2>
-      <p>Get a quick speed read. {!user && <span className="auth-required">Login required to run speed tests.</span>} {user && 'If a PageSpeed API key is configured on the server, you\'ll see Lighthouse metrics.'}</p>
-      <form onSubmit={onSubmit} className="form">
-        <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://yoursite.com" />
-        <select value={strategy} onChange={e=>setStrategy(e.target.value)}>
-          <option value="mobile">Mobile</option>
-          <option value="desktop">Desktop</option>
-        </select>
-        <button disabled={loading}>{loading ? 'Testing…' : 'Run Test'}</button>
-      </form>
-
-      {error && <div className="error">{error}</div>}
-      {data && (
-        <div className="results speed-results">
-          <div className="results-header">
-            {typeof perf === 'number' ? (
-              <ScoreBadge score={perf} label="Performance Score" />
-            ) : (
-              <div className="enhanced-card">
-                <div className="enhanced-card-header">
-                  <div className="card-icon">⚡</div>
-                  <div className="card-title-content">
-                    <h4>Basic Speed Test</h4>
-                    <div className="card-stats">Simple metrics</div>
-                  </div>
-                </div>
-                <div className="enhanced-card-body">
-                  <div className="enhanced-row">
-                    <div className="row-content">
-                      <div className="row-key">Status</div>
-                      <div className="row-value">{data.basic?.status || 'Unknown'}</div>
-                    </div>
-                    <div className="status-indicator good">✓</div>
-                  </div>
-                </div>
+    <div style={containerStyle}>
+      <div style={cardStyle}>
+        <div style={gridStyle}>
+          {/* Stats - Mobile first */}
+          {isMobile && (
+            <div style={statsContainerStyle}>
+              <div style={statCardStyle}>
+                <div style={{fontSize: '20px', fontWeight: 'bold', color: '#8b5cf6', marginBottom: '4px'}}>95</div>
+                <div style={{fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px'}}>AVG SCORE</div>
               </div>
-            )}
+              <div style={statCardStyle}>
+                <div style={{fontSize: '20px', fontWeight: 'bold', color: '#8b5cf6', marginBottom: '4px'}}>1.2s</div>
+                <div style={{fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px'}}>LOAD TIME</div>
+              </div>
+              <div style={statCardStyle}>
+                <div style={{fontSize: '20px', fontWeight: 'bold', color: '#8b5cf6', marginBottom: '4px'}}>12+</div>
+                <div style={{fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px'}}>CHECKS</div>
+              </div>
+            </div>
+          )}
+
+          {/* Content */}
+          <div>
+            {/* Status Badge */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              backgroundColor: 'rgba(55, 65, 81, 0.5)',
+              padding: '8px 16px',
+              borderRadius: '20px',
+              marginBottom: '24px',
+              border: '1px solid rgba(75, 85, 99, 0.3)'
+            }}>
+              <div style={{
+                width: '8px',
+                height: '8px',
+                backgroundColor: '#10b981',
+                borderRadius: '50%',
+                marginRight: '8px'
+              }}></div>
+              <span style={{fontSize: '14px', color: '#9ca3af'}}>
+                Site Speed Analysis Tool
+              </span>
+            </div>
+
+            {/* Title */}
+            <h1 style={titleStyle}>
+              Analyze Your Website's{' '}
+              <span style={{
+                background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}>
+                Speed Performance
+              </span>
+            </h1>
+
+            {/* Description */}
+            <p style={{
+              fontSize: isMobile ? '16px' : '18px',
+              color: '#d1d5db',
+              lineHeight: '1.6',
+              marginBottom: '40px',
+              maxWidth: '100%'
+            }}>
+              Get instant insights into your website's loading speed with our comprehensive analysis tool.
+            </p>
+
+            {/* Form */}
+            <div style={formContainerStyle}>
+              <form onSubmit={onSubmit}>
+                <div style={formInnerStyle}>
+                  {/* URL Input */}
+                  <div style={inputContainerStyle}>
+                    <div style={{padding: '16px 12px', color: '#9ca3af'}}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="M21 21L16.65 16.65"/>
+                      </svg>
+                    </div>
+                    <input
+                      value={url}
+                      onChange={e => setUrl(e.target.value)}
+                      placeholder="Enter URL"
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  {/* Controls */}
+                  <div style={controlsStyle}>
+                    <select value={strategy} onChange={e => setStrategy(e.target.value)} style={selectStyle}>
+                      <option value="mobile" style={{background: '#1f2937', color: '#f9fafb'}}>📱 Mobile</option>
+                      <option value="desktop" style={{background: '#1f2937', color: '#f9fafb'}}>🖥️ Desktop</option>
+                    </select>
+
+                    <button type="submit" disabled={loading || !url.trim()} style={buttonStyle}>
+                      <span>{loading ? 'Analyzing...' : 'Analyze'}</span>
+                      {!loading && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="9,18 15,12 9,6"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            {/* Examples */}
+            <div style={examplesStyle}>
+              <span style={{fontSize: '14px', color: '#9ca3af'}}>Try:</span>
+              {['google.com', 'github.com'].map(example => (
+                <button
+                  key={example}
+                  type="button"
+                  onClick={() => setUrl(example)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#d1d5db',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    textUnderlineOffset: '4px'
+                  }}
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {data.usingPageSpeedAPI ? (
-            <div className="grid">
-              <SpeedMetricCard 
-                title="Core Web Vitals" 
-                icon="🎯"
-                items={[
-                  ['First Contentful Paint (FCP)', data.metrics?.FCP || '—', getMetricStatus('FCP', data.metrics?.FCP)],
-                  ['Largest Contentful Paint (LCP)', data.metrics?.LCP || '—', getMetricStatus('LCP', data.metrics?.LCP)],
-                  ['Cumulative Layout Shift (CLS)', data.metrics?.CLS || '—', getMetricStatus('CLS', data.metrics?.CLS)]
-                ]}
-              />
-              
-              <SpeedMetricCard 
-                title="Performance Metrics" 
-                icon="📊"
-                items={[
-                  ['Total Blocking Time (TBT)', data.metrics?.TBT || '—', getMetricStatus('TBT', data.metrics?.TBT)],
-                  ['Speed Index', data.metrics?.SI || '—', getMetricStatus('SI', data.metrics?.SI)],
-                  ['Time to Interactive (TTI)', data.metrics?.TTI || '—', getMetricStatus('TTI', data.metrics?.TTI)]
-                ]}
-              />
-
-              <SpeedMetricCard 
-                title="Loading Analysis" 
-                icon="🚀"
-                items={[
-                  ['First Meaningful Paint', data.metrics?.FMP || '—', 'good'],
-                  ['DOM Content Loaded', data.metrics?.DCL || '—', 'good'],
-                  ['Full Load Time', data.metrics?.Load || '—', 'good']
-                ]}
-              />
-
-              <SpeedMetricCard 
-                title="Basic Performance" 
-                icon="⚡"
-                items={[
-                  ['Response Time', `${data.basic?.timeMs || 0} ms`, getBasicTimeStatus(data.basic?.timeMs)],
-                  ['Status Code', data.basic?.status || '—', data.basic?.status === 200 ? 'good' : 'bad'],
-                  ['Response Size', formatBytes(data.basic?.bytes) || '—', 'good'],
-                  ['Using PageSpeed API', 'Yes', 'good']
-                ]}
-              />
-
-              <OpportunitiesCard 
-                title="Opportunities" 
-                icon="💡"
-                items={[
-                  ['Unused JavaScript', data.opportunities?.unusedJS || 'Not analyzed', getOpportunityStatus(data.opportunities?.unusedJS)],
-                  ['Image Optimization', data.opportunities?.images || 'Not analyzed', getOpportunityStatus(data.opportunities?.images)],
-                  ['Render-blocking Resources', data.opportunities?.renderBlocking || 'Not analyzed', getOpportunityStatus(data.opportunities?.renderBlocking)],
-                  ['Text Compression', data.opportunities?.textCompression || 'Not analyzed', getOpportunityStatus(data.opportunities?.textCompression)],
-                  ['Modern Image Formats', data.opportunities?.nextGenFormats || 'Not analyzed', getOpportunityStatus(data.opportunities?.nextGenFormats)],
-                  ['Browser Caching', data.opportunities?.efficientCaching || 'Not analyzed', getOpportunityStatus(data.opportunities?.efficientCaching)]
-                ]}
-              />
-            </div>
-          ) : (
-            <div className="grid">
-              <SpeedMetricCard 
-                title="Basic Performance" 
-                icon="⏱️"
-                items={[
-                  ['Response Time', `${data.basic?.timeMs || 0} ms`, getBasicTimeStatus(data.basic?.timeMs)],
-                  ['Status Code', data.basic?.status || '—', data.basic?.status === 200 ? 'good' : 'bad'],
-                  ['Content Size', formatBytes(data.basic?.bytes), 'good'],
-                  ['Test Strategy', strategy.charAt(0).toUpperCase() + strategy.slice(1), 'good']
-                ]}
-              />
-
-              <div className="lighthouse-card">
-                <div className="lighthouse-header">
-                  <div className="lighthouse-icon">
-                    <div className="lighthouse-beacon"></div>
-                    🚀
-                  </div>
-                  <div className="lighthouse-title">
-                    <h4>Unlock Lighthouse Metrics</h4>
-                    <p>Get Google's advanced performance insights</p>
-                  </div>
-                  {userProfile?.pagespeedApi?.hasKey && (
-                    <div className="lighthouse-status">
-                      <div className="status-dot"></div>
-                      <span>Connected</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="lighthouse-body">
-                  {!userProfile?.pagespeedApi?.hasKey ? (
-                    <div className="lighthouse-setup">
-                      <div className="metrics-preview">
-                        <div className="preview-grid">
-                          <div className="metric-preview">
-                            <div className="metric-icon">⚡</div>
-                            <span>Core Web Vitals</span>
-                          </div>
-                          <div className="metric-preview">
-                            <div className="metric-icon">📊</div>
-                            <span>Performance Score</span>
-                          </div>
-                          <div className="metric-preview">
-                            <div className="metric-icon">🎯</div>
-                            <span>Opportunities</span>
-                          </div>
-                          <div className="metric-preview">
-                            <div className="metric-icon">🔍</div>
-                            <span>Diagnostics</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="setup-actions">
-                        <div className="dashboard-notice">
-                          <div className="notice-icon">ℹ️</div>
-                          <div className="notice-content">
-                            <p><strong>Configure in Dashboard</strong></p>
-                            <p>Set up your PageSpeed API key in your user dashboard for automatic use across all speed tests and project analysis.</p>
-                          </div>
-                        </div>
-                        <button 
-                          type="button"
-                          className="primary-setup-btn"
-                          onClick={() => window.location.hash = 'dashboard'}
-                        >
-                          <span className="btn-icon">⚙️</span>
-                          Go to Dashboard Settings
-                        </button>
-                        <button 
-                          type="button"
-                          className="secondary-setup-btn"
-                          onClick={() => window.open('https://developers.google.com/speed/docs/insights/v5/get-started', '_blank')}
-                        >
-                          <span className="btn-icon">📖</span>
-                          How to Get API Key
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="lighthouse-connected">
-                      <div className="connection-success">
-                        <div className="success-icon">✅</div>
-                        <div className="success-content">
-                          <h5>Lighthouse Metrics Enabled!</h5>
-                          <p>Your PageSpeed API key is configured. You'll get detailed Core Web Vitals, performance opportunities, and diagnostics with every speed test.</p>
-                          {userProfile?.pagespeedApi?.maskedKey && (
-                            <div className="api-key-display">
-                              <span className="key-label">API Key:</span>
-                              <code className="masked-key">{userProfile.pagespeedApi.maskedKey}</code>
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          className="manage-btn"
-                          onClick={() => window.location.hash = 'dashboard'}
-                          title="Manage API key in dashboard"
-                        >
-                          Manage in Dashboard
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+          {/* Stats - Desktop */}
+          {!isMobile && (
+            <div style={statsContainerStyle}>
+              <div style={statCardStyle}>
+                <div style={{fontSize: '36px', fontWeight: 'bold', color: '#8b5cf6', marginBottom: '8px'}}>95</div>
+                <div style={{fontSize: '14px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px'}}>AVG SCORE</div>
+              </div>
+              <div style={statCardStyle}>
+                <div style={{fontSize: '36px', fontWeight: 'bold', color: '#8b5cf6', marginBottom: '8px'}}>1.2s</div>
+                <div style={{fontSize: '14px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px'}}>LOAD TIME</div>
+              </div>
+              <div style={statCardStyle}>
+                <div style={{fontSize: '36px', fontWeight: 'bold', color: '#8b5cf6', marginBottom: '8px'}}>12+</div>
+                <div style={{fontSize: '14px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px'}}>CHECKS</div>
               </div>
             </div>
           )}
         </div>
-      )}
-    </section>
+      </div>
+    </div>
   )
 }
