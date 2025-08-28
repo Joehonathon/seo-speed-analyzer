@@ -36,19 +36,24 @@ export default function Auth({ onAuth }) {
     }
 
     try {
-      // TEMPORARY: Mock authentication while we fix API
-      // In production, this would make real API calls
+      let response;
       
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
-      
-      const user = {
-        id: Math.random().toString(36).substr(2, 9),
-        username: isLogin ? (email.includes('@') ? email.split('@')[0] : email) : username,
-        email: isLogin ? (email.includes('@') ? email : `${email}@example.com`) : email,
-        tier: 'free'
-      };
+      if (isLogin) {
+        // Login API call
+        response = await axios.post('/api/auth/login-simple', {
+          emailOrUsername: email,
+          password: password
+        });
+      } else {
+        // Registration API call
+        response = await axios.post('/api/auth/register-simple', {
+          username: username,
+          email: email,
+          password: password
+        });
+      }
 
-      const token = 'mock-jwt-token-' + user.id;
+      const { token, user } = response.data;
       
       // Store token in localStorage
       localStorage.setItem('auth_token', token);

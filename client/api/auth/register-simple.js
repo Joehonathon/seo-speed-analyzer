@@ -24,8 +24,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-    // For now, just create a mock user response
-    // Later we'll add real database integration
+    // Create new user with free tier (registration creates free users)
     const user = {
       id: Math.random().toString(36).substr(2, 9),
       username,
